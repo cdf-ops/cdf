@@ -1,26 +1,46 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f9fb;
+  --foreground: #191c1e;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f2f4f6;
+  --surface-container-high: #e6e8ea;
+  --surface-container: #eceef0;
+  --surface-variant: #e0e3e5;
+  --primary: #005ea4;
+  --primary-container: #0077ce;
+  --primary-soft: #a2c9ff;
+  --secondary: #006a62;
+  --secondary-soft: #81f3e5;
+  --outline: #707783;
+  --outline-variant: #c0c7d4;
+  --danger: #ba1a1a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-inter);
+  --font-headline: var(--font-manrope);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), sans-serif;
+}
+
+.surface-card {
+  background: var(--surface-container-lowest);
+  border: 1px solid color-mix(in srgb, var(--outline-variant) 20%, transparent);
+  box-shadow: 0 12px 32px -8px rgba(0, 96, 168, 0.08);
+}
+
+.gradient-primary {
+  background: linear-gradient(135deg, #005ea4 0%, #0077ce 100%);
+}
+
+.text-muted {
+  color: color-mix(in srgb, var(--foreground) 65%, var(--outline));
 }
