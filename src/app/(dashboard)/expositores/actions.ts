@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeCnpj, normalizeEmail, normalizePhone } from "@/lib/exhibitors/helpers";
+import { mapExhibitorDbErrorToUserMessage, mapUnexpectedExhibitorErrorToUserMessage } from "@/lib/exhibitors/db-errors";
 
 const createExhibitorSchema = z.object({
   tradeName: z.string().trim().min(2, "Nome fantasia é obrigatório."),
@@ -38,61 +39,74 @@ export async function createExhibitorAction(
   _: CreateExhibitorState,
   formData: FormData
 ): Promise<CreateExhibitorState> {
-  const session = await requireSession(["super_adm", "organizador"]);
-  const parsed = createExhibitorSchema.safeParse({
-    tradeName: formData.get("trade_name"),
-    legalName: formData.get("legal_name"),
-    cnpj: formData.get("cnpj"),
-    phone: formData.get("phone"),
-    email: formData.get("email"),
-    contactName: formData.get("contact_name"),
-    notes: formData.get("notes"),
-  });
+  try {
+    const session = await requireSession(["super_adm", "organizador"]);
+    const parsed = createExhibitorSchema.safeParse({
+      tradeName: formData.get("trade_name"),
+      legalName: formData.get("legal_name"),
+      cnpj: formData.get("cnpj"),
+      phone: formData.get("phone"),
+      email: formData.get("email"),
+      contactName: formData.get("contact_name"),
+      notes: formData.get("notes"),
+    });
 
-  if (!parsed.success) {
-    return withError(parsed.error.issues[0]?.message ?? "Dados inválidos para cadastro do expositor.");
-  }
+    if (!parsed.success) {
+      return withError(parsed.error.issues[0]?.message ?? "Dados inválidos para cadastro do expositor.");
+    }
 
-  const normalizedCnpj = normalizeCnpj(parsed.data.cnpj);
-  if (normalizedCnpj.length !== 14) {
-    return withError("CNPJ deve conter 14 dígitos.");
-  }
+    const normalizedCnpj = normalizeCnpj(parsed.data.cnpj);
+    if (normalizedCnpj.length !== 14) {
+      return withError("CNPJ deve conter 14 dígitos.");
+    }
 
-  const admin = createAdminClient();
-  const { data: existingCompany } = await admin.from("exhibitor_companies").select("id").eq("cnpj", normalizedCnpj).maybeSingle();
-  if (existingCompany) {
-    return withError("Já existe expositor cadastrado com este CNPJ.");
-  }
-
-  const payload = {
-    name: parsed.data.tradeName,
-    trade_name: parsed.data.tradeName,
-    legal_name: parsed.data.legalName,
-    cnpj: normalizedCnpj,
-    phone: normalizePhone(parsed.data.phone),
-    email: parsed.data.email ? normalizeEmail(parsed.data.email) : null,
-    contact_name: parsed.data.contactName && parsed.data.contactName.length > 0 ? parsed.data.contactName : null,
-    notes: parsed.data.notes && parsed.data.notes.length > 0 ? parsed.data.notes : null,
-  };
-
-  const { data: createdCompany, error } = await admin.from("exhibitor_companies").insert(payload).select("id").maybeSingle();
-  if (error) {
-    if (error.code === "23505") {
+    const admin = createAdminClient();
+    const { data: existingCompany, error: existingCompanyError } = await admin
+      .from("exhibitor_companies")
+      .select("id")
+      .eq("cnpj", normalizedCnpj)
+      .maybeSingle();
+    if (existingCompanyError) {
+      console.error("createExhibitorAction.existingCompanyError", existingCompanyError);
+      return withError(
+        mapExhibitorDbErrorToUserMessage(existingCompanyError, "Não foi possível validar o CNPJ no cadastro de expositores.")
+      );
+    }
+    if (existingCompany) {
       return withError("Já existe expositor cadastrado com este CNPJ.");
     }
-    return withError("Não foi possível cadastrar o expositor.");
-  }
 
-  await admin.from("audit_logs").insert({
-    actor_user_id: session.userId,
-    action: "EXHIBITOR_CREATED",
-    context: {
-      exhibitor_id: createdCompany?.id ?? null,
-      cnpj: normalizedCnpj,
+    const payload = {
+      name: parsed.data.tradeName,
       trade_name: parsed.data.tradeName,
-    },
-  });
+      legal_name: parsed.data.legalName,
+      cnpj: normalizedCnpj,
+      phone: normalizePhone(parsed.data.phone),
+      email: parsed.data.email ? normalizeEmail(parsed.data.email) : null,
+      contact_name: parsed.data.contactName && parsed.data.contactName.length > 0 ? parsed.data.contactName : null,
+      notes: parsed.data.notes && parsed.data.notes.length > 0 ? parsed.data.notes : null,
+    };
 
-  revalidatePath("/expositores");
-  return withSuccess("Expositor cadastrado com sucesso.");
+    const { data: createdCompany, error } = await admin.from("exhibitor_companies").insert(payload).select("id").maybeSingle();
+    if (error) {
+      console.error("createExhibitorAction.insertError", error);
+      return withError(mapExhibitorDbErrorToUserMessage(error, "Não foi possível cadastrar o expositor."));
+    }
+
+    await admin.from("audit_logs").insert({
+      actor_user_id: session.userId,
+      action: "EXHIBITOR_CREATED",
+      context: {
+        exhibitor_id: createdCompany?.id ?? null,
+        cnpj: normalizedCnpj,
+        trade_name: parsed.data.tradeName,
+      },
+    });
+
+    revalidatePath("/expositores");
+    return withSuccess("Expositor cadastrado com sucesso.");
+  } catch (error) {
+    console.error("createExhibitorAction.unexpectedError", error);
+    return withError(mapUnexpectedExhibitorErrorToUserMessage(error, "Não foi possível cadastrar o expositor."));
+  }
 }

@@ -22,6 +22,11 @@ export default async function DashboardLayout({
               >
                 Eventos
               </Link>
+              {session.role === "super_adm" ? (
+                <Link href="/usuarios" className="text-sm font-semibold text-[var(--outline)] hover:text-[var(--primary)]">
+                  Usuários
+                </Link>
+              ) : null}
               {["super_adm", "organizador"].includes(session.role) ? (
                 <Link href="/expositores" className="text-sm font-semibold text-[var(--outline)] hover:text-[var(--primary)]">
                   Expositores

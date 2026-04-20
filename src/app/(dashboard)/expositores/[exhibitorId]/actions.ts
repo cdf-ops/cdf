@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createAuthExhibitorUserByEmail, findAuthUserByEmail } from "@/lib/exhibitors/auth";
+import { mapExhibitorDbErrorToUserMessage, mapUnexpectedExhibitorErrorToUserMessage } from "@/lib/exhibitors/db-errors";
 import { normalizeCnpj, normalizeEmail, normalizePhone } from "@/lib/exhibitors/helpers";
 
 export type ExhibitorDetailState = {
@@ -143,76 +144,90 @@ export async function updateExhibitorDetailsAction(
   _: ExhibitorDetailState,
   formData: FormData
 ): Promise<ExhibitorDetailState> {
-  const session = await requireSession(["super_adm", "organizador"]);
-  const parsed = updateExhibitorSchema.safeParse({
-    exhibitorId: formData.get("exhibitor_id"),
-    tradeName: formData.get("trade_name"),
-    legalName: formData.get("legal_name"),
-    cnpj: formData.get("cnpj"),
-    phone: formData.get("phone"),
-    email: formData.get("email"),
-    contactName: formData.get("contact_name"),
-    notes: formData.get("notes"),
-  });
+  try {
+    const session = await requireSession(["super_adm", "organizador"]);
+    const parsed = updateExhibitorSchema.safeParse({
+      exhibitorId: formData.get("exhibitor_id"),
+      tradeName: formData.get("trade_name"),
+      legalName: formData.get("legal_name"),
+      cnpj: formData.get("cnpj"),
+      phone: formData.get("phone"),
+      email: formData.get("email"),
+      contactName: formData.get("contact_name"),
+      notes: formData.get("notes"),
+    });
 
-  if (!parsed.success) {
-    return withError(parsed.error.issues[0]?.message ?? "Dados inválidos do expositor.");
-  }
+    if (!parsed.success) {
+      return withError(parsed.error.issues[0]?.message ?? "Dados inválidos do expositor.");
+    }
 
-  const normalizedCnpj = normalizeCnpj(parsed.data.cnpj);
-  if (normalizedCnpj.length !== 14) {
-    return withError("CNPJ deve conter 14 dígitos.");
-  }
+    const normalizedCnpj = normalizeCnpj(parsed.data.cnpj);
+    if (normalizedCnpj.length !== 14) {
+      return withError("CNPJ deve conter 14 dígitos.");
+    }
 
-  const admin = createAdminClient();
-  const exhibitor = await ensureExhibitorExists(parsed.data.exhibitorId);
-  if (!exhibitor) {
-    return withError("Expositor não encontrado.");
-  }
+    const admin = createAdminClient();
+    const exhibitor = await ensureExhibitorExists(parsed.data.exhibitorId);
+    if (!exhibitor) {
+      return withError("Expositor não encontrado.");
+    }
 
-  const { data: duplicateCnpj } = await admin
-    .from("exhibitor_companies")
-    .select("id")
-    .eq("cnpj", normalizedCnpj)
-    .neq("id", parsed.data.exhibitorId)
-    .maybeSingle();
-  if (duplicateCnpj) {
-    return withError("Já existe outro expositor com este CNPJ.");
-  }
-
-  const { error } = await admin
-    .from("exhibitor_companies")
-    .update({
-      name: parsed.data.tradeName,
-      trade_name: parsed.data.tradeName,
-      legal_name: parsed.data.legalName,
-      cnpj: normalizedCnpj,
-      phone: normalizePhone(parsed.data.phone),
-      email: parsed.data.email ? normalizeEmail(parsed.data.email) : null,
-      contact_name: parsed.data.contactName && parsed.data.contactName.length > 0 ? parsed.data.contactName : null,
-      notes: parsed.data.notes && parsed.data.notes.length > 0 ? parsed.data.notes : null,
-    })
-    .eq("id", parsed.data.exhibitorId);
-
-  if (error) {
-    if (error.code === "23505") {
+    const { data: duplicateCnpj, error: duplicateCnpjError } = await admin
+      .from("exhibitor_companies")
+      .select("id")
+      .eq("cnpj", normalizedCnpj)
+      .neq("id", parsed.data.exhibitorId)
+      .maybeSingle();
+    if (duplicateCnpjError) {
+      console.error("updateExhibitorDetailsAction.duplicateCnpjError", duplicateCnpjError);
+      return withError(
+        mapExhibitorDbErrorToUserMessage(
+          duplicateCnpjError,
+          "Não foi possível validar o CNPJ no cadastro de expositores."
+        )
+      );
+    }
+    if (duplicateCnpj) {
       return withError("Já existe outro expositor com este CNPJ.");
     }
-    return withError("Não foi possível atualizar os dados do expositor.");
+
+    const { error } = await admin
+      .from("exhibitor_companies")
+      .update({
+        name: parsed.data.tradeName,
+        trade_name: parsed.data.tradeName,
+        legal_name: parsed.data.legalName,
+        cnpj: normalizedCnpj,
+        phone: normalizePhone(parsed.data.phone),
+        email: parsed.data.email ? normalizeEmail(parsed.data.email) : null,
+        contact_name: parsed.data.contactName && parsed.data.contactName.length > 0 ? parsed.data.contactName : null,
+        notes: parsed.data.notes && parsed.data.notes.length > 0 ? parsed.data.notes : null,
+      })
+      .eq("id", parsed.data.exhibitorId);
+
+    if (error) {
+      console.error("updateExhibitorDetailsAction.updateError", error);
+      return withError(mapExhibitorDbErrorToUserMessage(error, "Não foi possível atualizar os dados do expositor."));
+    }
+
+    await admin.from("audit_logs").insert({
+      actor_user_id: session.userId,
+      action: "EXHIBITOR_UPDATED",
+      context: {
+        exhibitor_id: parsed.data.exhibitorId,
+        cnpj: normalizedCnpj,
+        trade_name: parsed.data.tradeName,
+      },
+    });
+
+    revalidateExhibitorPaths(parsed.data.exhibitorId);
+    return withSuccess("Dados do expositor atualizados com sucesso.");
+  } catch (error) {
+    console.error("updateExhibitorDetailsAction.unexpectedError", error);
+    return withError(
+      mapUnexpectedExhibitorErrorToUserMessage(error, "Não foi possível atualizar os dados do expositor.")
+    );
   }
-
-  await admin.from("audit_logs").insert({
-    actor_user_id: session.userId,
-    action: "EXHIBITOR_UPDATED",
-    context: {
-      exhibitor_id: parsed.data.exhibitorId,
-      cnpj: normalizedCnpj,
-      trade_name: parsed.data.tradeName,
-    },
-  });
-
-  revalidateExhibitorPaths(parsed.data.exhibitorId);
-  return withSuccess("Dados do expositor atualizados com sucesso.");
 }
 
 export async function linkExhibitorUserAction(
