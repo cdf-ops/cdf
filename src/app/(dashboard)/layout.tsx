@@ -22,7 +22,6 @@ export default async function DashboardLayout({
               >
                 Eventos
               </Link>
-              <span className="text-sm text-[var(--outline)]">Trocar Evento</span>
             </nav>
           </div>
           <div className="flex items-center gap-3">

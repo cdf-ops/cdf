@@ -156,8 +156,6 @@ export default async function AuditPage({ params, searchParams }: AuditPageProps
           </span>
         </div>
         <div className="flex items-center gap-3 text-sm font-semibold text-[var(--outline)]">
-          <span>Trocar Evento</span>
-          <span className="h-5 w-px bg-[var(--outline-variant)]/60" />
           <span>{filteredLogs.length} registros</span>
         </div>
       </div>
