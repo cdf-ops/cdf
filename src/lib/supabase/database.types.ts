@@ -181,18 +181,39 @@ export type Database = {
         Row: {
           id: string;
           name: string;
+          trade_name: string | null;
+          legal_name: string | null;
+          cnpj: string | null;
+          phone: string | null;
+          email: string | null;
+          contact_name: string | null;
+          notes: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           name: string;
+          trade_name?: string | null;
+          legal_name?: string | null;
+          cnpj?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          contact_name?: string | null;
+          notes?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           name?: string;
+          trade_name?: string | null;
+          legal_name?: string | null;
+          cnpj?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          contact_name?: string | null;
+          notes?: string | null;
           created_at?: string;
           updated_at?: string;
         };

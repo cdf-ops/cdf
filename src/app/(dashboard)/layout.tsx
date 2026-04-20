@@ -22,6 +22,11 @@ export default async function DashboardLayout({
               >
                 Eventos
               </Link>
+              {["super_adm", "organizador"].includes(session.role) ? (
+                <Link href="/expositores" className="text-sm font-semibold text-[var(--outline)] hover:text-[var(--primary)]">
+                  Expositores
+                </Link>
+              ) : null}
             </nav>
           </div>
           <div className="flex items-center gap-3">
