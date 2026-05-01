@@ -135,6 +135,8 @@ export async function generateCertificatePdf(admin: SupabaseClient<Database>, in
       drawImage(page, eventLogo, element);
     } else if (element.id === "sponsorImage" && sponsorImage) {
       drawImage(page, sponsorImage, element);
+    } else if (element.id === "text1" || element.id === "text2" || element.id === "text3") {
+      drawText(page, font, element, element.text ?? "");
     } else if (element.id === "eventName" || element.id === "eventDate" || element.id === "participantName") {
       drawText(page, font, element, values[element.id]);
     }

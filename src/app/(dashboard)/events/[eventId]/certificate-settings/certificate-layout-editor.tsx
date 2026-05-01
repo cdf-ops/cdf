@@ -21,6 +21,9 @@ type CertificateLayoutEditorProps = {
 };
 
 const previewValues: Record<CertificateElementId, string> = {
+  text1: "CERTIFICADO",
+  text2: "Certificamos que",
+  text3: "participou de forma presencial no",
   eventName: "",
   eventDate: "",
   participantName: "Nome Completo do Participante",
@@ -107,7 +110,7 @@ export function CertificateLayoutEditor({
         ? eventName
         : element.id === "eventDate"
           ? formatDate(eventDate)
-          : previewValues[element.id];
+          : element.text ?? previewValues[element.id];
 
     return <span className="block truncate px-2">{text}</span>;
   }
@@ -213,6 +216,18 @@ export function CertificateLayoutEditor({
 
           {selected.kind === "text" ? (
             <div className="mt-4 space-y-3">
+              {selected.text !== undefined ? (
+                <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--outline)]">
+                  Texto
+                  <textarea
+                    value={selected.text}
+                    rows={3}
+                    maxLength={180}
+                    onChange={(event) => updateElement(selected.id, { text: event.target.value })}
+                    className="mt-1 w-full resize-none rounded-lg border border-[var(--outline-variant)]/60 bg-white px-3 py-2 text-sm normal-case tracking-normal text-[var(--foreground)] outline-none"
+                  />
+                </label>
+              ) : null}
               <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--outline)]">
                 Tamanho
                 <input

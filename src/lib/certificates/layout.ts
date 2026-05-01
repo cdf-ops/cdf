@@ -3,7 +3,15 @@ import type { Json } from "@/lib/supabase/database.types";
 export const CERTIFICATE_WIDTH = 1920;
 export const CERTIFICATE_HEIGHT = 1080;
 
-export type CertificateElementId = "eventName" | "eventDate" | "participantName" | "eventLogo" | "sponsorImage";
+export type CertificateElementId =
+  | "text1"
+  | "text2"
+  | "text3"
+  | "eventName"
+  | "eventDate"
+  | "participantName"
+  | "eventLogo"
+  | "sponsorImage";
 
 export type CertificateElementKind = "text" | "image";
 
@@ -18,6 +26,7 @@ export type CertificateLayoutElement = {
   fontSize?: number;
   color?: string;
   align?: "left" | "center" | "right";
+  text?: string;
 };
 
 export type CertificateLayout = {
@@ -48,6 +57,32 @@ export const DEFAULT_CERTIFICATE_LAYOUT: CertificateLayout = {
       align: "center",
     },
     {
+      id: "text1",
+      kind: "text",
+      label: "Texto 1",
+      x: 560,
+      y: 120,
+      width: 800,
+      height: 80,
+      fontSize: 58,
+      color: "#005ea4",
+      align: "center",
+      text: "CERTIFICADO",
+    },
+    {
+      id: "text2",
+      kind: "text",
+      label: "Texto 2",
+      x: 560,
+      y: 400,
+      width: 800,
+      height: 58,
+      fontSize: 34,
+      color: "#191c1e",
+      align: "center",
+      text: "Certificamos que",
+    },
+    {
       id: "participantName",
       kind: "text",
       label: "Nome do Participante",
@@ -58,6 +93,19 @@ export const DEFAULT_CERTIFICATE_LAYOUT: CertificateLayout = {
       fontSize: 78,
       color: "#005ea4",
       align: "center",
+    },
+    {
+      id: "text3",
+      kind: "text",
+      label: "Texto 3",
+      x: 460,
+      y: 630,
+      width: 1000,
+      height: 58,
+      fontSize: 34,
+      color: "#191c1e",
+      align: "center",
+      text: "participou de forma presencial no",
     },
     {
       id: "eventDate",
@@ -83,7 +131,16 @@ export const DEFAULT_CERTIFICATE_LAYOUT: CertificateLayout = {
   ],
 };
 
-const elementIds = new Set<CertificateElementId>(["eventName", "eventDate", "participantName", "eventLogo", "sponsorImage"]);
+const elementIds = new Set<CertificateElementId>([
+  "text1",
+  "text2",
+  "text3",
+  "eventName",
+  "eventDate",
+  "participantName",
+  "eventLogo",
+  "sponsorImage",
+]);
 
 function sanitizeNumber(value: unknown, fallback: number, min: number, max: number) {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -94,6 +151,14 @@ function sanitizeNumber(value: unknown, fallback: number, min: number, max: numb
 
 function sanitizeColor(value: unknown, fallback: string) {
   return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
+}
+
+function sanitizeText(value: unknown, fallback: string | undefined) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  const normalized = value.trim().slice(0, 180);
+  return normalized || fallback;
 }
 
 export function parseCertificateLayout(value: Json | string | null | undefined): CertificateLayout {
@@ -137,6 +202,7 @@ export function parseCertificateLayout(value: Json | string | null | undefined):
           submitted.align === "left" || submitted.align === "center" || submitted.align === "right"
             ? submitted.align
             : fallback.align,
+        text: fallback.text ? sanitizeText(submitted.text, fallback.text) : undefined,
       };
     }),
   };
