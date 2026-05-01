@@ -422,7 +422,7 @@ export type Database = {
           id: string;
           participant_id: string;
           event_day_id: string;
-          issued_by: string;
+          issued_by: string | null;
           pdf_url: string | null;
           issued_at: string;
         };
@@ -430,7 +430,7 @@ export type Database = {
           id?: string;
           participant_id: string;
           event_day_id: string;
-          issued_by: string;
+          issued_by?: string | null;
           pdf_url?: string | null;
           issued_at?: string;
         };
@@ -438,7 +438,7 @@ export type Database = {
           id?: string;
           participant_id?: string;
           event_day_id?: string;
-          issued_by?: string;
+          issued_by?: string | null;
           pdf_url?: string | null;
           issued_at?: string;
         };

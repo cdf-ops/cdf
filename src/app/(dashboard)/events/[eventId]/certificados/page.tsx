@@ -2,6 +2,7 @@ import { requireSession } from "@/lib/auth/session";
 import { createAssetSignedUrl } from "@/lib/certificates/assets";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { issueCertificateAction } from "@/app/(dashboard)/events/[eventId]/certificados/actions";
+import { CopyLinkButton } from "@/app/(dashboard)/events/[eventId]/inscricoes/copy-link-button";
 
 type CertificatesPageProps = {
   params: Promise<{ eventId: string }>;
@@ -50,6 +51,7 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
 
   const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getDefaultDayId(eventDays);
   const returnUrl = `/events/${eventId}/certificados?day=${selectedDayId}${queryText ? `&q=${encodeURIComponent(queryText)}` : ""}`;
+  const publicCertificateLink = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/certificado/${eventId}`;
 
   const { data: entryCheckinsData } = await admin
     .from("entry_checkins")
@@ -94,6 +96,20 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
       <div className="surface-card rounded-xl p-5">
         <h2 className="font-headline text-2xl font-extrabold tracking-tight text-[var(--foreground)]">Gestão de Certificados</h2>
         <p className="mt-1 text-sm text-muted">Emissão manual, um a um, para participantes elegíveis.</p>
+        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-[var(--outline-variant)]/35 bg-[var(--surface-container-low)] p-4 md:flex-row md:items-center md:justify-between">
+          <p className="break-all text-sm text-muted">{publicCertificateLink}</p>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <CopyLinkButton url={publicCertificateLink} />
+            <a
+              href={publicCertificateLink}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white"
+            >
+              Visualizar página pública
+            </a>
+          </div>
+        </div>
 
         {notice ? (
           <p
