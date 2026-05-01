@@ -22,6 +22,11 @@ export default async function EventScopedLayout({ children, params }: EventScope
 
   const navItems: { href: string; label: string; roles: AppRole[] }[] = [
     { href: `/events/${eventId}/settings`, label: "Configuração", roles: ["super_adm", "organizador"] },
+    {
+      href: `/events/${eventId}/certificate-settings`,
+      label: "Configuração Certificado",
+      roles: ["super_adm", "organizador"],
+    },
     { href: `/events/${eventId}/inscricoes`, label: "Inscrições", roles: ["super_adm", "organizador"] },
     {
       href: `/events/${eventId}/checkin-recepcao`,

@@ -34,6 +34,7 @@ export type Database = {
           location: string;
           details: string | null;
           status: "rascunho" | "ativo" | "encerrado";
+          event_logo_path: string | null;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -44,6 +45,7 @@ export type Database = {
           location: string;
           details?: string | null;
           status?: "rascunho" | "ativo" | "encerrado";
+          event_logo_path?: string | null;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -54,7 +56,38 @@ export type Database = {
           location?: string;
           details?: string | null;
           status?: "rascunho" | "ativo" | "encerrado";
+          event_logo_path?: string | null;
           created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      event_certificate_settings: {
+        Row: {
+          event_id: string;
+          background_path: string | null;
+          sponsor_image_path: string | null;
+          layout: Json;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          event_id: string;
+          background_path?: string | null;
+          sponsor_image_path?: string | null;
+          layout?: Json;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          event_id?: string;
+          background_path?: string | null;
+          sponsor_image_path?: string | null;
+          layout?: Json;
+          updated_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };

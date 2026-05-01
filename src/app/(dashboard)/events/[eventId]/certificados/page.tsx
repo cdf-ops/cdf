@@ -1,4 +1,5 @@
 import { requireSession } from "@/lib/auth/session";
+import { createAssetSignedUrl } from "@/lib/certificates/assets";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { issueCertificateAction } from "@/app/(dashboard)/events/[eventId]/certificados/actions";
 
@@ -32,6 +33,11 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
     .select("id, date")
     .eq("event_id", eventId)
     .order("date", { ascending: true });
+  const { data: certificateSettings } = await admin
+    .from("event_certificate_settings")
+    .select("background_path")
+    .eq("event_id", eventId)
+    .maybeSingle();
   const eventDays = eventDaysData ?? [];
   if (!eventDays.length) {
     return (
@@ -68,7 +74,7 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
       ? (
           await admin
             .from("certificates")
-            .select("id, participant_id, issued_at")
+            .select("id, participant_id, issued_at, pdf_url")
             .eq("event_day_id", selectedDayId)
             .in(
               "participant_id",
@@ -76,6 +82,11 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
             )
         ).data ?? []
       : [];
+  const certificateUrls = new Map(
+    await Promise.all(
+      certificates.map(async (item) => [item.id, await createAssetSignedUrl(admin, item.pdf_url)] as const)
+    )
+  );
   const certificateMap = new Map(certificates.map((item) => [item.participant_id, item]));
 
   return (
@@ -91,6 +102,12 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
             }`}
           >
             {notice}
+          </p>
+        ) : null}
+
+        {!certificateSettings?.background_path ? (
+          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Configure o layout e o background do certificado antes de emitir PDFs.
           </p>
         ) : null}
 
@@ -138,9 +155,21 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
                     <td className="px-4 py-3">{participant.document_type} {participant.document_number}</td>
                     <td className="px-4 py-3">
                       {certificate ? (
-                        <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
-                          Emitido ({new Date(certificate.issued_at).toLocaleString("pt-BR")})
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
+                            Emitido ({new Date(certificate.issued_at).toLocaleString("pt-BR")})
+                          </span>
+                          {certificateUrls.get(certificate.id) ? (
+                            <a
+                              href={certificateUrls.get(certificate.id) ?? undefined}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs font-bold text-[var(--primary)]"
+                            >
+                              Abrir PDF
+                            </a>
+                          ) : null}
+                        </div>
                       ) : (
                         <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">Pendente</span>
                       )}
@@ -172,4 +201,3 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
     </section>
   );
 }
-

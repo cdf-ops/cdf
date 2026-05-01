@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth/session";
+import { uploadEventImage } from "@/lib/certificates/assets";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const eventFormSchema = z.object({
@@ -29,6 +30,11 @@ function parseEventFormData(formData: FormData) {
     details: formData.get("details"),
     dates: parsedDates,
   });
+}
+
+function getOptionalImageFile(formData: FormData, fieldName: string) {
+  const file = formData.get(fieldName);
+  return file instanceof File && file.size > 0 ? file : null;
 }
 
 async function replaceEventDays(eventId: string, dates: string[]) {
@@ -74,6 +80,12 @@ export async function createEventAction(formData: FormData) {
 
   await replaceEventDays(event.id, parsed.data.dates);
 
+  const logoFile = getOptionalImageFile(formData, "event_logo");
+  if (logoFile) {
+    const logoPath = await uploadEventImage(supabase, event.id, logoFile, "logo");
+    await supabase.from("events").update({ event_logo_path: logoPath }).eq("id", event.id);
+  }
+
   await supabase.from("audit_logs").insert({
     actor_user_id: session.userId,
     action: "EVENT_CREATED",
@@ -100,14 +112,27 @@ export async function updateEventAction(formData: FormData) {
   }
 
   const supabase = createAdminClient();
+  const logoFile = getOptionalImageFile(formData, "event_logo");
+  const eventUpdatePayload: {
+    name: string;
+    location: string;
+    details: string | null;
+    status: "rascunho" | "ativo" | "encerrado";
+    event_logo_path?: string | null;
+  } = {
+    name: parsed.data.name,
+    location: parsed.data.location,
+    details: parsed.data.details || null,
+    status: parsed.data.status,
+  };
+
+  if (logoFile) {
+    eventUpdatePayload.event_logo_path = await uploadEventImage(supabase, eventId, logoFile, "logo");
+  }
+
   const { error } = await supabase
     .from("events")
-    .update({
-      name: parsed.data.name,
-      location: parsed.data.location,
-      details: parsed.data.details || null,
-      status: parsed.data.status,
-    })
+    .update(eventUpdatePayload)
     .eq("id", eventId);
 
   if (error) {
