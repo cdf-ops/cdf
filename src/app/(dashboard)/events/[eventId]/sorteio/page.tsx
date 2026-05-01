@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { deleteRaffleAction, executeRaffleAction } from "@/app/(dashboard)/events/[eventId]/sorteio/actions";
+import { deleteRaffleAction } from "@/app/(dashboard)/events/[eventId]/sorteio/actions";
 
 type RafflePageProps = {
   params: Promise<{ eventId: string }>;
@@ -36,8 +36,8 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
   if (!eventDays.length) {
     return (
       <section className="surface-card rounded-xl p-6">
-        <h2 className="font-headline text-2xl font-extrabold text-[var(--foreground)]">Central de Prêmios</h2>
-        <p className="mt-2 text-sm text-muted">Configure datas no evento antes de executar sorteio.</p>
+        <h2 className="font-headline text-2xl font-extrabold text-[var(--foreground)]">Central de Sorteios</h2>
+        <p className="mt-2 text-sm text-muted">Configure datas no evento antes de executar sorteios.</p>
       </section>
     );
   }
@@ -55,22 +55,23 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
 
   const { data: rafflesData } = await admin
     .from("raffles")
-    .select("id, prize_description, winners_count, executed_at, deleted_at")
+    .select("id, winners_count, executed_at, deleted_at")
     .eq("event_day_id", selectedDayId)
-    .order("executed_at", { ascending: false, nullsFirst: false });
-  const activeRaffle = (rafflesData ?? []).find((item) => !item.deleted_at) ?? null;
+    .order("executed_at", { ascending: true, nullsFirst: false });
+  const raffles = (rafflesData ?? []).filter((item) => !item.deleted_at);
+  const roundNumberByRaffleId = new Map(raffles.map((raffle, index) => [raffle.id, index + 1]));
+  const raffleIds = raffles.map((raffle) => raffle.id);
 
   const winnerRows =
-    activeRaffle
+    raffleIds.length > 0
       ? (
           await admin
             .from("raffle_winners")
-            .select("id, participant_id, created_at")
-            .eq("raffle_id", activeRaffle.id)
-            .order("created_at", { ascending: false })
+            .select("id, raffle_id, participant_id, created_at")
+            .in("raffle_id", raffleIds)
+            .order("created_at", { ascending: true })
         ).data ?? []
       : [];
-
   const winnerParticipantIds = [...new Set(winnerRows.map((item) => item.participant_id))];
   const { data: winnersData } =
     winnerParticipantIds.length > 0
@@ -80,31 +81,28 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
           .in("id", winnerParticipantIds)
       : { data: [] as { id: string; full_name: string; document_type: string; document_number: string }[] };
   const winnerMap = new Map((winnersData ?? []).map((item) => [item.id, item]));
+  const winnersByRaffleId = new Map<string, typeof winnerRows>();
+  winnerRows.forEach((winner) => {
+    winnersByRaffleId.set(winner.raffle_id, [...(winnersByRaffleId.get(winner.raffle_id) ?? []), winner]);
+  });
 
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="font-headline text-5xl font-extrabold tracking-tight text-[var(--foreground)]">Central de Prêmios</h2>
+          <h2 className="font-headline text-5xl font-extrabold tracking-tight text-[var(--foreground)]">Central de Sorteios</h2>
           <p className="mt-2 max-w-2xl text-base text-muted">
-            Gerencie os sorteios em tempo real e mantenha a transparência editorial do evento.
+            Abra o telão para conduzir rodadas ao vivo. O histórico fica registrado automaticamente.
           </p>
         </div>
 
-        <div className="shell-card flex max-w-md items-start gap-3 rounded-xl p-4">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--secondary-soft)]/70 text-[var(--secondary)]">*</span>
-          <div>
-            <p className="text-sm font-bold text-[var(--secondary)]">Aviso Importante</p>
-            <p className="mt-0.5 text-sm text-[var(--foreground)]">Abra o modo Telão em outra aba para os participantes.</p>
-          </div>
-          <Link
-            href={`/telao/sorteio/${eventId}?day=${selectedDayId}`}
-            target="_blank"
-            className="ml-auto text-xs font-bold uppercase tracking-[0.2em] text-[var(--primary)]"
-          >
-            Abrir Telão
-          </Link>
-        </div>
+        <Link
+          href={`/telao/sorteio/${eventId}?day=${selectedDayId}`}
+          target="_blank"
+          className="gradient-primary rounded-xl px-5 py-3 text-center text-sm font-bold text-white"
+        >
+          Abrir Telão
+        </Link>
       </div>
 
       {notice ? (
@@ -119,14 +117,8 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
 
       <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
         <div className="surface-card rounded-2xl p-6">
-          <div className="mb-5 flex items-center gap-3">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--primary)]/10 text-sm font-bold text-[var(--primary)]">
-              1
-            </span>
-            <h3 className="font-headline text-3xl font-bold tracking-tight text-[var(--foreground)]">Configurar Sorteio</h3>
-          </div>
-
-          <form className="grid gap-4 md:grid-cols-3">
+          <h3 className="font-headline text-2xl font-bold tracking-tight text-[var(--foreground)]">Dia do Sorteio</h3>
+          <form className="mt-4 grid gap-4 md:grid-cols-3">
             <div className="md:col-span-2">
               <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Selecionar Dia do Evento</label>
               <select
@@ -136,7 +128,7 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
               >
                 {eventDays.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {new Date(item.date).toLocaleDateString("pt-BR")}
+                    {new Date(`${item.date}T12:00:00`).toLocaleDateString("pt-BR")}
                   </option>
                 ))}
               </select>
@@ -146,121 +138,78 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
             </button>
           </form>
 
-          {!activeRaffle ? (
-            <form action={executeRaffleAction} className="mt-4 grid gap-4 md:grid-cols-3">
-              <input type="hidden" name="event_id" value={eventId} />
-              <input type="hidden" name="event_day_id" value={selectedDayId} />
-              <input type="hidden" name="redirect_url" value={returnUrl} />
-
-              <div className="md:col-span-2">
-                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Descrição do Prêmio</label>
-                <input
-                  name="prize_description"
-                  required
-                  placeholder="Ex.: Kit Ar Condicionado X"
-                  className="input-surface mt-1 w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/10"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Qtde. Ganhadores</label>
-                <input
-                  name="winners_count"
-                  type="number"
-                  min={1}
-                  defaultValue={1}
-                  className="input-surface mt-1 w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/10"
-                />
-              </div>
-
-              <button className="gradient-primary md:col-span-3 rounded-xl px-4 py-3 text-base font-semibold text-white">
-                Executar Sorteio
-              </button>
-            </form>
-          ) : (
-            <div className="mt-4 rounded-xl bg-[var(--surface-container-low)] p-4">
-              <p className="text-sm text-muted">Sorteio já executado para este dia.</p>
-              <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">Prêmio: {activeRaffle.prize_description}</p>
-              <p className="mt-1 text-xs text-muted">
-                Executado em {activeRaffle.executed_at ? new Date(activeRaffle.executed_at).toLocaleString("pt-BR") : "-"}
-              </p>
-
-              {session.role === "super_adm" ? (
-                <form action={deleteRaffleAction} className="mt-3">
-                  <input type="hidden" name="raffle_id" value={activeRaffle.id} />
-                  <input type="hidden" name="event_id" value={eventId} />
-                  <input type="hidden" name="redirect_url" value={returnUrl} />
-                  <button className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white">Excluir Sorteio (Lógico)</button>
-                </form>
-              ) : null}
-            </div>
-          )}
+          <div className="mt-5 rounded-xl border border-[var(--outline-variant)]/35 bg-[var(--surface-container-low)] p-4">
+            <p className="text-sm font-semibold text-[var(--foreground)]">Como operar durante o evento</p>
+            <p className="mt-1 text-sm text-muted">
+              A equipe abre o telão, escolhe a quantidade de ganhadores da rodada e clica em sortear. O sistema faz a contagem e registra
+              a rodada automaticamente.
+            </p>
+          </div>
         </div>
 
         <div className="gradient-primary rounded-2xl p-6 text-white">
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/80">Status da Base</p>
           <p className="mt-2 font-headline text-4xl font-extrabold leading-tight">{eligibleCount.toLocaleString("pt-BR")} Participantes</p>
           <p className="mt-1 text-sm text-white/90">Aptos para o sorteio atual</p>
-
-          <div className="mt-6 grid grid-cols-2 gap-2">
-            <div className="rounded-lg bg-white/15 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-white/80">Auditoria</p>
-              <p className="mt-1 text-sm font-semibold">Verificada</p>
-            </div>
-            <div className="rounded-lg bg-white/15 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-white/80">Transmissão</p>
-              <p className="mt-1 text-sm font-semibold">Ao vivo</p>
-            </div>
+          <div className="mt-6 rounded-lg bg-white/15 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-white/80">Rodadas no dia</p>
+            <p className="mt-1 text-2xl font-extrabold">{raffles.length}</p>
           </div>
         </div>
       </div>
 
       <div className="surface-card rounded-2xl p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-headline text-2xl font-bold tracking-tight text-[var(--foreground)]">Histórico de Ganhadores</h3>
+          <h3 className="font-headline text-2xl font-bold tracking-tight text-[var(--foreground)]">Histórico de Rodadas</h3>
           <Link href={`/events/${eventId}/relatorios`} className="text-sm font-semibold text-[var(--primary)]">
             Exportar Relatório
           </Link>
         </div>
 
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full border-collapse text-left text-sm">
-            <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
-              <tr>
-                <th className="px-4 py-3">Vencedor</th>
-                <th className="px-4 py-3">Horário</th>
-                <th className="px-4 py-3">Prêmio</th>
-                <th className="px-4 py-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--surface-container)]">
-              {winnerRows.map((winnerRow) => {
-                const winner = winnerMap.get(winnerRow.participant_id);
-                return (
-                  <tr key={winnerRow.id}>
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-[var(--foreground)]">{winner?.full_name ?? "Participante"}</p>
-                      <p className="text-xs text-muted">{winner ? `${winner.document_type} ${winner.document_number}` : "-"}</p>
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-[var(--foreground)]">
-                      {new Date(winnerRow.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                    </td>
-                    <td className="px-4 py-3">{activeRaffle?.prize_description ?? "-"}</td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">Entregue</span>
-                    </td>
-                  </tr>
-                );
-              })}
-              {!winnerRows.length ? (
-                <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-sm text-muted">
-                    Nenhum ganhador registrado para este dia.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+        <div className="mt-4 grid gap-3">
+          {[...raffles].reverse().map((raffle) => {
+            const roundWinners = winnersByRaffleId.get(raffle.id) ?? [];
+            return (
+              <article key={raffle.id} className="rounded-xl border border-[var(--outline-variant)]/35 bg-white p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--outline)]">
+                      Rodada {roundNumberByRaffleId.get(raffle.id) ?? "-"}
+                    </p>
+                    <p className="mt-1 text-sm text-muted">
+                      {raffle.executed_at ? new Date(raffle.executed_at).toLocaleString("pt-BR") : "-"} | {raffle.winners_count} ganhador(es)
+                    </p>
+                  </div>
+
+                  {session.role === "super_adm" ? (
+                    <form action={deleteRaffleAction}>
+                      <input type="hidden" name="raffle_id" value={raffle.id} />
+                      <input type="hidden" name="event_id" value={eventId} />
+                      <input type="hidden" name="redirect_url" value={returnUrl} />
+                      <button className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white">Excluir rodada</button>
+                    </form>
+                  ) : null}
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {roundWinners.map((winnerRow) => {
+                    const winner = winnerMap.get(winnerRow.participant_id);
+                    return (
+                      <span key={winnerRow.id} className="rounded-full bg-[var(--surface-container-low)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)]">
+                        {winner?.full_name ?? "Participante"}
+                      </span>
+                    );
+                  })}
+                </div>
+              </article>
+            );
+          })}
+
+          {!raffles.length ? (
+            <p className="rounded-xl bg-[var(--surface-container-low)] px-4 py-6 text-center text-sm text-muted">
+              Nenhuma rodada registrada para este dia.
+            </p>
+          ) : null}
         </div>
       </div>
     </section>
