@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { logoutAction } from "@/app/(auth)/login/actions";
+import { DashboardNav } from "@/app/(dashboard)/dashboard-nav";
 import { requireSession } from "@/lib/auth/session";
 
 export default async function DashboardLayout({
@@ -15,28 +15,9 @@ export default async function DashboardLayout({
             <span className="font-headline text-xl font-extrabold tracking-tight text-[var(--primary)]">
               Clube do Frio
             </span>
-            <nav className="hidden items-center gap-4 md:flex">
-              <Link
-                href="/events"
-                className="border-b-2 border-[var(--primary)] pb-0.5 font-headline text-sm font-bold text-[var(--primary)] tracking-tight"
-              >
-                Eventos
-              </Link>
-              {session.role === "super_adm" ? (
-                <Link href="/usuarios" className="text-sm font-semibold text-[var(--outline)] hover:text-[var(--primary)]">
-                  Usuários
-                </Link>
-              ) : null}
-              {["super_adm", "organizador"].includes(session.role) ? (
-                <Link href="/expositores" className="text-sm font-semibold text-[var(--outline)] hover:text-[var(--primary)]">
-                  Expositores
-                </Link>
-              ) : null}
-            </nav>
+            <DashboardNav role={session.role} />
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden h-8 w-8 items-center justify-center rounded-full text-[var(--outline)] md:inline-flex">o</span>
-            <span className="hidden h-8 w-8 items-center justify-center rounded-full text-[var(--outline)] md:inline-flex">o</span>
             <span className="rounded-full bg-[var(--surface-container)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]">
               {session.role}
             </span>
