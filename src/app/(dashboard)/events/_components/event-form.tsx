@@ -11,6 +11,7 @@ type EventFormProps = {
     location: string;
     status: "rascunho" | "ativo" | "encerrado";
     details: string | null;
+    eventLogoUrl?: string | null;
     dates: string[];
   };
 };
@@ -93,6 +94,29 @@ export function EventForm({ mode, action, initialData }: EventFormProps) {
             placeholder="Informações operacionais, público-alvo e observações."
           />
         </div>
+
+        <div className="md:col-span-2">
+          <label className="mb-1.5 block text-sm font-semibold text-[var(--foreground)]">Logo do Evento</label>
+          <div className="grid gap-4 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] p-4 md:grid-cols-[180px_minmax(0,1fr)] md:items-center">
+            <div className="flex h-28 items-center justify-center rounded-lg border border-dashed border-[var(--outline-variant)] bg-white p-3">
+              {initialData?.eventLogoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={initialData.eventLogoUrl} alt="Logo atual do evento" className="max-h-full max-w-full object-contain" />
+              ) : (
+                <span className="text-center text-xs font-semibold text-[var(--outline)]">Sem logo</span>
+              )}
+            </div>
+            <div>
+              <input
+                type="file"
+                name="event_logo"
+                accept="image/png,image/jpeg"
+                className="w-full rounded-xl border border-[var(--outline-variant)]/60 bg-white px-4 py-3 text-sm outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--primary)] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+              />
+              <p className="mt-2 text-xs text-muted">PNG ou JPG, até 10 MB. O arquivo enviado substitui o logo atual.</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="mt-8 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] p-4">
@@ -141,4 +165,3 @@ export function EventForm({ mode, action, initialData }: EventFormProps) {
     </form>
   );
 }
-

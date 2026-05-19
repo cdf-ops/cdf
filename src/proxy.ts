@@ -5,7 +5,7 @@ export async function proxy(request: NextRequest) {
   const { response, user } = await updateSession(request);
   const path = request.nextUrl.pathname;
 
-  if (path.startsWith("/events") && !user) {
+  if ((path.startsWith("/events") || path.startsWith("/expositores") || path.startsWith("/usuarios")) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", path);
@@ -22,6 +22,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/events/:path*", "/login"],
+  matcher: ["/", "/events/:path*", "/expositores/:path*", "/usuarios/:path*", "/login"],
 };
-

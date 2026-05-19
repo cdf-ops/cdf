@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth/session";
+import { issueCertificateForParticipant } from "@/lib/certificates/issue";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 
@@ -32,40 +33,21 @@ export async function issueCertificateAction(formData: FormData) {
   }
 
   const admin = createAdminClient();
-  const { data: entryCheckin } = await admin
-    .from("entry_checkins")
-    .select("id")
-    .eq("event_day_id", parsed.data.eventDayId)
-    .eq("participant_id", parsed.data.participantId)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  if (!entryCheckin) {
-    redirect(withNotice(parsed.data.redirectUrl, "error", "Participante não tem check-in de entrada neste dia."));
-  }
-
-  const { data: existingCertificate } = await admin
-    .from("certificates")
-    .select("id")
-    .eq("event_day_id", parsed.data.eventDayId)
-    .eq("participant_id", parsed.data.participantId)
-    .maybeSingle();
-
-  if (existingCertificate) {
-    await admin
-      .from("certificates")
-      .update({
-        issued_by: session.userId,
-        issued_at: new Date().toISOString(),
-      })
-      .eq("id", existingCertificate.id);
-  } else {
-    await admin.from("certificates").insert({
-      event_day_id: parsed.data.eventDayId,
-      participant_id: parsed.data.participantId,
-      issued_by: session.userId,
-      pdf_url: null,
+  try {
+    await issueCertificateForParticipant(admin, {
+      eventId: parsed.data.eventId,
+      eventDayId: parsed.data.eventDayId,
+      participantId: parsed.data.participantId,
+      issuedBy: session.userId,
     });
+  } catch (error) {
+    redirect(
+      withNotice(
+        parsed.data.redirectUrl,
+        "error",
+        error instanceof Error ? error.message : "Não foi possível emitir o certificado."
+      )
+    );
   }
 
   await admin.from("audit_logs").insert({
@@ -78,6 +60,5 @@ export async function issueCertificateAction(formData: FormData) {
     },
   });
 
-  redirect(withNotice(parsed.data.redirectUrl, "success", "Certificado emitido (manual) com sucesso."));
+  redirect(withNotice(parsed.data.redirectUrl, "success", "Certificado emitido e PDF gerado com sucesso."));
 }
-

@@ -1,6 +1,8 @@
 import { requireSession } from "@/lib/auth/session";
+import { createAssetSignedUrl } from "@/lib/certificates/assets";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { issueCertificateAction } from "@/app/(dashboard)/events/[eventId]/certificados/actions";
+import { CopyLinkButton } from "@/app/(dashboard)/events/[eventId]/inscricoes/copy-link-button";
 
 type CertificatesPageProps = {
   params: Promise<{ eventId: string }>;
@@ -32,6 +34,11 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
     .select("id, date")
     .eq("event_id", eventId)
     .order("date", { ascending: true });
+  const { data: certificateSettings } = await admin
+    .from("event_certificate_settings")
+    .select("background_path")
+    .eq("event_id", eventId)
+    .maybeSingle();
   const eventDays = eventDaysData ?? [];
   if (!eventDays.length) {
     return (
@@ -44,6 +51,7 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
 
   const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getDefaultDayId(eventDays);
   const returnUrl = `/events/${eventId}/certificados?day=${selectedDayId}${queryText ? `&q=${encodeURIComponent(queryText)}` : ""}`;
+  const publicCertificateLink = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/certificado/${eventId}`;
 
   const { data: entryCheckinsData } = await admin
     .from("entry_checkins")
@@ -68,7 +76,7 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
       ? (
           await admin
             .from("certificates")
-            .select("id, participant_id, issued_at")
+            .select("id, participant_id, issued_at, pdf_url")
             .eq("event_day_id", selectedDayId)
             .in(
               "participant_id",
@@ -76,6 +84,11 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
             )
         ).data ?? []
       : [];
+  const certificateUrls = new Map(
+    await Promise.all(
+      certificates.map(async (item) => [item.id, await createAssetSignedUrl(admin, item.pdf_url)] as const)
+    )
+  );
   const certificateMap = new Map(certificates.map((item) => [item.participant_id, item]));
 
   return (
@@ -83,6 +96,20 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
       <div className="surface-card rounded-xl p-5">
         <h2 className="font-headline text-2xl font-extrabold tracking-tight text-[var(--foreground)]">Gestão de Certificados</h2>
         <p className="mt-1 text-sm text-muted">Emissão manual, um a um, para participantes elegíveis.</p>
+        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-[var(--outline-variant)]/35 bg-[var(--surface-container-low)] p-4 md:flex-row md:items-center md:justify-between">
+          <p className="break-all text-sm text-muted">{publicCertificateLink}</p>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <CopyLinkButton url={publicCertificateLink} />
+            <a
+              href={publicCertificateLink}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white"
+            >
+              Visualizar página pública
+            </a>
+          </div>
+        </div>
 
         {notice ? (
           <p
@@ -91,6 +118,12 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
             }`}
           >
             {notice}
+          </p>
+        ) : null}
+
+        {!certificateSettings?.background_path ? (
+          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Configure o layout e o background do certificado antes de emitir PDFs.
           </p>
         ) : null}
 
@@ -138,9 +171,21 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
                     <td className="px-4 py-3">{participant.document_type} {participant.document_number}</td>
                     <td className="px-4 py-3">
                       {certificate ? (
-                        <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
-                          Emitido ({new Date(certificate.issued_at).toLocaleString("pt-BR")})
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
+                            Emitido ({new Date(certificate.issued_at).toLocaleString("pt-BR")})
+                          </span>
+                          {certificateUrls.get(certificate.id) ? (
+                            <a
+                              href={certificateUrls.get(certificate.id) ?? undefined}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs font-bold text-[var(--primary)]"
+                            >
+                              Abrir PDF
+                            </a>
+                          ) : null}
+                        </div>
                       ) : (
                         <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">Pendente</span>
                       )}
@@ -172,4 +217,3 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
     </section>
   );
 }
-

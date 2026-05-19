@@ -83,14 +83,14 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
         </Link>
       </div>
 
-      <form className="mb-8 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] p-4">
+      <form className="shell-card mb-6 rounded-xl p-4">
         <div className="flex flex-col gap-4 md:flex-row">
           <input
             type="text"
             name="q"
             defaultValue={queryText}
             placeholder="Buscar por nome ou local do evento..."
-            className="flex-1 rounded-xl border border-[var(--outline-variant)]/40 bg-white px-4 py-3 text-sm outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+            className="input-surface flex-1 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/10"
           />
           <div className="flex flex-wrap gap-2">
             {STATUS_OPTIONS.map((item) => (
@@ -101,7 +101,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                   selectedStatus === item.value
                     ? "bg-[var(--primary)] text-white"
-                    : "border border-[var(--outline-variant)]/55 bg-white text-[var(--foreground)] hover:bg-[var(--surface-container)]"
+                    : "ghost-border bg-[var(--surface-container-lowest)] text-[var(--foreground)] hover:bg-[var(--surface-container)]"
                 }`}
               >
                 {item.label}
@@ -115,11 +115,11 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
         <table className="w-full border-collapse text-left">
           <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
             <tr>
-              <th className="px-6 py-4 font-semibold">Nome do Evento</th>
-              <th className="px-6 py-4 font-semibold">Datas</th>
-              <th className="px-6 py-4 font-semibold">Local</th>
-              <th className="px-6 py-4 font-semibold text-center">Status</th>
-              <th className="px-6 py-4 font-semibold text-right">Ações</th>
+              <th className="px-8 py-5 font-semibold">Nome do Evento</th>
+              <th className="px-8 py-5 font-semibold">Datas</th>
+              <th className="px-8 py-5 font-semibold">Local</th>
+              <th className="px-8 py-5 font-semibold text-center">Status</th>
+              <th className="px-8 py-5 font-semibold text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--surface-container)] text-sm">
@@ -130,20 +130,20 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                   ? `/events/${event.id}/checkin-recepcao`
                   : session.role === "expositor"
                     ? `/events/${event.id}/checkin-expositor`
-                  : `/events/${event.id}/settings`;
+                    : `/events/${event.id}/settings`;
               return (
                 <tr key={event.id} className="hover:bg-[var(--surface-container-low)]/75">
-                  <td className="px-6 py-5">
+                  <td className="px-8 py-5">
                     <p className="font-headline text-base font-bold text-[var(--foreground)]">{event.name}</p>
                   </td>
-                  <td className="px-6 py-5 text-muted">{formatDateRange(dateList)}</td>
-                  <td className="px-6 py-5 text-muted">{event.location}</td>
-                  <td className="px-6 py-5 text-center">
+                  <td className="px-8 py-5 text-muted">{formatDateRange(dateList)}</td>
+                  <td className="px-8 py-5 text-muted">{event.location}</td>
+                  <td className="px-8 py-5 text-center">
                     <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusBadgeClass(event.status)}`}>
                       {event.status}
                     </span>
                   </td>
-                  <td className="px-6 py-5 text-right">
+                  <td className="px-8 py-5 text-right">
                     <Link
                       href={entryHref}
                       className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--primary)] transition hover:bg-[var(--primary)]/5"
@@ -156,13 +156,35 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
             })}
             {!events.length ? (
               <tr>
-                <td colSpan={5} className="px-6 py-10 text-center text-sm text-muted">
+                <td colSpan={5} className="px-8 py-10 text-center text-sm text-muted">
                   Nenhum evento encontrado com os filtros atuais.
                 </td>
               </tr>
             ) : null}
           </tbody>
         </table>
+      </div>
+
+      <div className="mt-8 grid gap-4 md:grid-cols-3">
+        <div className="gradient-primary rounded-2xl p-6 text-white md:col-span-2">
+          <p className="font-headline text-3xl font-extrabold tracking-tight">Expanda seu impacto</p>
+          <p className="mt-2 max-w-xl text-sm text-white/90">
+            Crie um novo evento e gerencie inscricoes, certificados e check-ins com a mesma base de operacao.
+          </p>
+          <Link
+            href="/events/new"
+            className="mt-5 inline-flex rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[var(--primary)]"
+          >
+            Criar Novo Evento
+          </Link>
+        </div>
+        <div className="surface-card rounded-2xl p-6">
+          <p className="font-headline text-2xl font-bold tracking-tight text-[var(--foreground)]">Relatorios Globais</p>
+          <p className="mt-2 text-sm text-muted">Visualize o desempenho consolidado dos eventos.</p>
+          <Link href="/events" className="mt-5 inline-flex text-sm font-semibold text-[var(--primary)]">
+            Ver estatisticas
+          </Link>
+        </div>
       </div>
     </section>
   );

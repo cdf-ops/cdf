@@ -2,7 +2,9 @@ import { notFound } from "next/navigation";
 import { EventForm } from "@/app/(dashboard)/events/_components/event-form";
 import { updateEventAction } from "@/app/(dashboard)/events/actions";
 import { requireSession } from "@/lib/auth/session";
+import { createAssetSignedUrl } from "@/lib/certificates/assets";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type EventSettingsPageProps = {
   params: Promise<{ eventId: string }>;
@@ -14,6 +16,7 @@ type EventSettingsItem = {
   location: string;
   details: string | null;
   status: "rascunho" | "ativo" | "encerrado";
+  event_logo_path: string | null;
   event_days: { date: string }[] | null;
 };
 
@@ -24,7 +27,7 @@ export default async function EventSettingsPage({ params }: EventSettingsPagePro
   const supabase = await createClient();
   const { data: event } = await supabase
     .from("events")
-    .select("id, name, location, details, status, event_days(date)")
+    .select("id, name, location, details, status, event_logo_path, event_days(date)")
     .eq("id", eventId)
     .maybeSingle();
 
@@ -33,6 +36,9 @@ export default async function EventSettingsPage({ params }: EventSettingsPagePro
   if (!typedEvent) {
     notFound();
   }
+
+  const admin = createAdminClient();
+  const logoUrl = await createAssetSignedUrl(admin, typedEvent.event_logo_path);
 
   return (
     <section>
@@ -52,6 +58,7 @@ export default async function EventSettingsPage({ params }: EventSettingsPagePro
           location: typedEvent.location,
           status: typedEvent.status,
           details: typedEvent.details,
+          eventLogoUrl: logoUrl,
           dates: (typedEvent.event_days ?? []).map((day) => day.date),
         }}
       />

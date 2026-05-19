@@ -3,7 +3,17 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 type DayListPageProps = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ day?: string }>;
+  searchParams: Promise<{ day?: string; q?: string }>;
+};
+
+type ConsolidatedRow = {
+  id: string;
+  participantId: string;
+  checkedAt: string;
+  type: "Entrada" | "Stand";
+  context: string;
+  kind: "Normal" | "Incluído na Hora" | "Stand";
+  status: "Ativo";
 };
 
 function getDefaultDayId(eventDays: { id: string; date: string }[]) {
@@ -14,10 +24,25 @@ function getDefaultDayId(eventDays: { id: string; date: string }[]) {
   return eventDays.find((day) => day.date === today)?.id ?? eventDays[0].id;
 }
 
+function getInitials(name?: string) {
+  if (!name) {
+    return "--";
+  }
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  if (!parts.length) {
+    return "--";
+  }
+  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
+}
+
 export default async function DayListPage({ params, searchParams }: DayListPageProps) {
   await requireSession(["super_adm", "organizador", "recepcao"]);
   const { eventId } = await params;
-  const { day } = await searchParams;
+  const { day, q = "" } = await searchParams;
   const admin = createAdminClient();
 
   const { data: eventDaysData } = await admin
@@ -37,6 +62,7 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
   }
 
   const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getDefaultDayId(eventDays);
+  const queryText = q.trim().toLowerCase();
 
   const entryCheckins =
     (
@@ -56,11 +82,16 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
         .is("deleted_at", null)
     ).data ?? [];
 
+  const registrations =
+    (
+      await admin
+        .from("event_registrations")
+        .select("participant_id")
+        .eq("event_day_id", selectedDayId)
+    ).data ?? [];
+
   const participantIds = [
-    ...new Set([
-      ...entryCheckins.map((item) => item.participant_id),
-      ...standCheckins.map((item) => item.participant_id),
-    ]),
+    ...new Set([...entryCheckins.map((item) => item.participant_id), ...standCheckins.map((item) => item.participant_id)]),
   ];
   const participants =
     participantIds.length > 0
@@ -83,6 +114,7 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
             .in("id", eventExhibitorIds)
         ).data ?? []
       : [];
+
   const companyIds = [...new Set(eventExhibitors.map((item) => item.exhibitor_company_id))];
   const companies =
     companyIds.length > 0
@@ -93,6 +125,7 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
             .in("id", companyIds)
         ).data ?? []
       : [];
+
   const companyMap = new Map(companies.map((item) => [item.id, item.name]));
   const eventExhibitorMap = new Map(
     eventExhibitors.map((item) => [
@@ -104,14 +137,15 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
     ])
   );
 
-  const rows = [
+  const rows: ConsolidatedRow[] = [
     ...entryCheckins.map((item) => ({
       id: `entry-${item.id}`,
       participantId: item.participant_id,
       checkedAt: item.checked_in_at,
-      type: "Entrada",
+      type: "Entrada" as const,
       context: item.origin,
-      status: "Confirmado",
+      kind: item.origin === "manual_include_day" ? ("Incluído na Hora" as const) : ("Normal" as const),
+      status: "Ativo" as const,
     })),
     ...standCheckins.map((item) => {
       const exhibitorInfo = eventExhibitorMap.get(item.event_exhibitor_id);
@@ -122,26 +156,106 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
         id: `stand-${item.id}`,
         participantId: item.participant_id,
         checkedAt: item.checked_in_at,
-        type: "Stand",
+        type: "Stand" as const,
         context: standLabel,
-        status: "Confirmado",
+        kind: "Stand" as const,
+        status: "Ativo" as const,
       };
     }),
   ].sort((a, b) => (a.checkedAt < b.checkedAt ? 1 : -1));
 
+  const expectedParticipants = new Set(registrations.map((item) => item.participant_id)).size;
+  const presentParticipants = new Set(entryCheckins.map((item) => item.participant_id)).size;
+  const occupancyRate = expectedParticipants > 0 ? Math.round((presentParticipants / expectedParticipants) * 100) : 0;
+
+  const hourlyBuckets = new Set(rows.map((row) => new Date(row.checkedAt).getHours()));
+  const checkinsPerHour = rows.length > 0 ? Math.round(rows.length / Math.max(1, hourlyBuckets.size)) : 0;
+
+  const filteredRows = rows.filter((row) => {
+    if (!queryText) {
+      return true;
+    }
+    const participant = participantMap.get(row.participantId);
+    const searchable = [
+      participant?.full_name ?? "",
+      participant?.document_type ?? "",
+      participant?.document_number ?? "",
+      row.type,
+      row.context,
+      row.kind,
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return searchable.includes(queryText);
+  });
+
+  const occupancyDelta = occupancyRate - 70;
+
   return (
     <section className="space-y-6">
-      <div className="surface-card rounded-xl p-5">
-        <h2 className="font-headline text-2xl font-extrabold tracking-tight text-[var(--foreground)]">Monitoramento em Tempo Real</h2>
-        <p className="mt-1 text-sm text-muted">Lista consolidada de check-ins de entrada e stands.</p>
+      <form className="grid gap-4 xl:grid-cols-[2fr_1fr]">
+        <input type="hidden" name="q" value={q} />
+        <div className="gradient-primary relative overflow-hidden rounded-2xl p-6 text-white">
+          <div className="absolute -right-6 -bottom-6 text-[180px] font-headline font-extrabold text-white/10">*</div>
+          <p className="font-headline text-3xl font-extrabold tracking-tight">Monitoramento em Tempo Real</p>
+          <p className="mt-1 text-sm text-white/85">Contagem oficial de participantes presentes no recinto</p>
+          <div className="mt-5 flex items-end gap-3">
+            <span className="font-headline text-6xl font-extrabold leading-none">{presentParticipants}</span>
+            <span className="pb-1 text-3xl font-medium text-white/85">/ {expectedParticipants} esperados</span>
+          </div>
+          <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/20">
+            <div
+              className="h-full rounded-full bg-[var(--secondary-soft)] transition-all"
+              style={{ width: `${Math.min(100, Math.max(0, occupancyRate))}%` }}
+            />
+          </div>
+        </div>
 
-        <form className="mt-4 flex items-end gap-2">
+        <div className="grid gap-4">
+          <div className="surface-card rounded-2xl p-5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Taxa de Ocupação</p>
+            <div className="mt-2 flex items-center gap-2">
+              <p className="font-headline text-4xl font-extrabold text-[var(--primary)]">{occupancyRate}%</p>
+              <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
+                {occupancyDelta >= 0 ? "+" : ""}
+                {occupancyDelta}%
+              </span>
+            </div>
+          </div>
+
+          <div className="surface-card rounded-2xl p-5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Check-ins/Hora</p>
+            <div className="mt-2 flex items-end gap-2">
+              <p className="font-headline text-4xl font-extrabold text-[var(--primary)]">{checkinsPerHour}</p>
+              <span className="pb-1 text-xs text-muted">média atual</span>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <h2 className="font-headline text-4xl font-extrabold tracking-tight text-[var(--foreground)]">Últimos Registros</h2>
+
+        <form className="w-full md:max-w-sm">
+          <input type="hidden" name="day" value={selectedDayId} />
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Pesquisar por nome ou credencial..."
+            className="input-surface w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/10"
+          />
+        </form>
+      </div>
+
+      <div className="surface-card overflow-hidden rounded-xl">
+        <div className="flex flex-wrap items-end gap-3 bg-[var(--surface-container-low)] px-4 py-3">
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[var(--outline)]">Dia do Evento</label>
+            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Dia do Evento</label>
             <select
               name="day"
               defaultValue={selectedDayId}
-              className="mt-1 block rounded-xl border border-[var(--outline-variant)]/55 bg-white px-4 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
+              className="mt-1 block rounded-lg bg-[var(--surface-container-lowest)] px-3 py-2 text-sm font-semibold outline-none"
             >
               {eventDays.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -150,71 +264,81 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
               ))}
             </select>
           </div>
-          <button className="rounded-xl border border-[var(--outline-variant)]/65 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--foreground)]">
+          <button className="ghost-border rounded-lg bg-[var(--surface-container-lowest)] px-4 py-2 text-sm font-semibold text-[var(--foreground)]">
             Trocar dia
           </button>
-        </form>
-      </div>
-
-      <div className="surface-card rounded-xl p-5">
-        <div className="mb-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border border-[var(--outline-variant)]/45 bg-white p-3">
-            <p className="text-xs text-muted">Check-ins Entrada</p>
-            <p className="font-headline text-2xl font-bold">{entryCheckins.length}</p>
-          </div>
-          <div className="rounded-lg border border-[var(--outline-variant)]/45 bg-white p-3">
-            <p className="text-xs text-muted">Check-ins Stand</p>
-            <p className="font-headline text-2xl font-bold">{standCheckins.length}</p>
-          </div>
-          <div className="rounded-lg border border-[var(--outline-variant)]/45 bg-white p-3">
-            <p className="text-xs text-muted">Total Registros</p>
-            <p className="font-headline text-2xl font-bold">{rows.length}</p>
-          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-sm">
-            <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
-              <tr>
-                <th className="px-4 py-3">Participante</th>
-                <th className="px-4 py-3">Hora</th>
-                <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3">Contexto</th>
-                <th className="px-4 py-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--surface-container)]">
-              {rows.slice(0, 100).map((row) => {
-                const participant = participantMap.get(row.participantId);
-                return (
-                  <tr key={row.id}>
-                    <td className="px-4 py-3">
-                      <p className="font-semibold">{participant?.full_name ?? "Participante"}</p>
-                      <p className="text-xs text-muted">
-                        {participant ? `${participant.document_type} ${participant.document_number}` : "-"}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">{new Date(row.checkedAt).toLocaleTimeString("pt-BR")}</td>
-                    <td className="px-4 py-3">{row.type}</td>
-                    <td className="px-4 py-3">{row.context}</td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">{row.status}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-              {!rows.length ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-muted">
-                    Ainda não há registros neste dia.
+        <table className="w-full border-collapse text-left text-sm">
+          <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
+            <tr>
+              <th className="px-4 py-3">Participante</th>
+              <th className="px-4 py-3">Hora do Check-in</th>
+              <th className="px-4 py-3">Tipo</th>
+              <th className="px-4 py-3">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--surface-container)]">
+            {filteredRows.slice(0, 100).map((row) => {
+              const participant = participantMap.get(row.participantId);
+              return (
+                <tr key={row.id}>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--surface-container-low)] text-xs font-bold text-[var(--primary)]">
+                        {getInitials(participant?.full_name)}
+                      </span>
+                      <div>
+                        <p className="font-semibold text-[var(--foreground)]">{participant?.full_name ?? "Participante"}</p>
+                        <p className="text-xs text-muted">
+                          {participant ? `${participant.document_type} ${participant.document_number}` : "-"}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 font-semibold text-[var(--foreground)]">{new Date(row.checkedAt).toLocaleTimeString("pt-BR")}</td>
+                  <td className="px-4 py-3">
+                    <div className="space-y-1">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-1 text-xs font-bold ${
+                          row.kind === "Incluído na Hora"
+                            ? "bg-blue-100 text-blue-700"
+                            : row.kind === "Stand"
+                              ? "bg-violet-100 text-violet-700"
+                              : "bg-emerald-100 text-emerald-700"
+                        }`}
+                      >
+                        {row.kind}
+                      </span>
+                      <p className="text-xs text-muted">{row.context}</p>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700">
+                      <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                      {row.status}
+                    </span>
                   </td>
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
+              );
+            })}
+            {!filteredRows.length ? (
+              <tr>
+                <td colSpan={4} className="px-4 py-6 text-center text-sm text-muted">
+                  Nenhum registro encontrado para esse filtro.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+
+        <div className="flex items-center justify-between bg-[var(--surface-container-low)] px-4 py-3 text-xs text-muted">
+          <span>
+            Exibindo {Math.min(100, filteredRows.length)} de {rows.length} check-ins
+          </span>
+          <span>Atualizado em tempo real</span>
         </div>
       </div>
     </section>
   );
 }
-

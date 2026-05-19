@@ -34,6 +34,7 @@ export type Database = {
           location: string;
           details: string | null;
           status: "rascunho" | "ativo" | "encerrado";
+          event_logo_path: string | null;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -44,6 +45,7 @@ export type Database = {
           location: string;
           details?: string | null;
           status?: "rascunho" | "ativo" | "encerrado";
+          event_logo_path?: string | null;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -54,7 +56,38 @@ export type Database = {
           location?: string;
           details?: string | null;
           status?: "rascunho" | "ativo" | "encerrado";
+          event_logo_path?: string | null;
           created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      event_certificate_settings: {
+        Row: {
+          event_id: string;
+          background_path: string | null;
+          sponsor_image_path: string | null;
+          layout: Json;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          event_id: string;
+          background_path?: string | null;
+          sponsor_image_path?: string | null;
+          layout?: Json;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          event_id?: string;
+          background_path?: string | null;
+          sponsor_image_path?: string | null;
+          layout?: Json;
+          updated_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -181,18 +214,39 @@ export type Database = {
         Row: {
           id: string;
           name: string;
+          trade_name: string | null;
+          legal_name: string | null;
+          cnpj: string | null;
+          phone: string | null;
+          email: string | null;
+          contact_name: string | null;
+          notes: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           name: string;
+          trade_name?: string | null;
+          legal_name?: string | null;
+          cnpj?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          contact_name?: string | null;
+          notes?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           name?: string;
+          trade_name?: string | null;
+          legal_name?: string | null;
+          cnpj?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          contact_name?: string | null;
+          notes?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -368,7 +422,7 @@ export type Database = {
           id: string;
           participant_id: string;
           event_day_id: string;
-          issued_by: string;
+          issued_by: string | null;
           pdf_url: string | null;
           issued_at: string;
         };
@@ -376,7 +430,7 @@ export type Database = {
           id?: string;
           participant_id: string;
           event_day_id: string;
-          issued_by: string;
+          issued_by?: string | null;
           pdf_url?: string | null;
           issued_at?: string;
         };
@@ -384,7 +438,7 @@ export type Database = {
           id?: string;
           participant_id?: string;
           event_day_id?: string;
-          issued_by?: string;
+          issued_by?: string | null;
           pdf_url?: string | null;
           issued_at?: string;
         };

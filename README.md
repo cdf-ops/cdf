@@ -33,6 +33,7 @@ Migrations e seed ficam em:
 - `supabase/migrations/20260409233000_phase_b_policies.sql`
 - `supabase/migrations/20260410001000_phase_c_checkin.sql`
 - `supabase/migrations/20260410003000_phase_d_finalize.sql`
+- `supabase/migrations/20260420113000_exhibitor_profiles.sql`
 - `supabase/seed.sql`
 
 Fluxo sugerido:
@@ -76,6 +77,7 @@ Fluxo sugerido:
    - `20260409233000_phase_b_policies.sql`
    - `20260410001000_phase_c_checkin.sql`
    - `20260410003000_phase_d_finalize.sql`
+   - `20260420113000_exhibitor_profiles.sql`
 2. Crie 4 usuários no Supabase Auth:
    - `superadm@clubedofrio.com`
    - `organizador@clubedofrio.com`
