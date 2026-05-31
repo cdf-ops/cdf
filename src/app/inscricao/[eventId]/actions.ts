@@ -1,5 +1,7 @@
 "use server";
 
+import { createHash } from "crypto";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerParticipantInEventDays } from "@/lib/domain/registrations";
@@ -15,6 +17,7 @@ const registrationSchema = z.object({
   city: z.string().trim().min(2, "Cidade é obrigatória."),
   profession: z.string().trim().min(2, "Profissão é obrigatória."),
   selectedDays: z.array(z.string().uuid()).min(1, "Selecione ao menos um dia."),
+  website: z.string().trim().optional(),
 });
 
 export type PublicRegistrationState = {
@@ -38,13 +41,43 @@ export async function submitPublicRegistration(
     city: formData.get("city"),
     profession: formData.get("profession"),
     selectedDays: selectedDaysRaw,
+    website: formData.get("website"),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos.", success: null };
   }
 
+  if (parsed.data.website) {
+    return {
+      error: null,
+      success: "Inscrição concluída com sucesso. Sua participação foi registrada.",
+    };
+  }
+
   const admin = createAdminClient();
+  const { data: event } = await admin.from("events").select("status").eq("id", parsed.data.eventId).maybeSingle();
+  if (!event || event.status !== "ativo") {
+    return { error: "Este evento não está recebendo inscrições no momento.", success: null };
+  }
+
+  const requestHeaders = await headers();
+  const forwardedFor = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const origin = forwardedFor || requestHeaders.get("x-real-ip") || requestHeaders.get("cf-connecting-ip") || "unknown";
+  const fingerprintHash = createHash("sha256").update(`${parsed.data.eventId}:${origin}`).digest("hex");
+  const { data: isAllowed, error: rateLimitError } = await admin.rpc("check_public_registration_rate_limit", {
+    p_event_id: parsed.data.eventId,
+    p_fingerprint_hash: fingerprintHash,
+  });
+
+  if (rateLimitError) {
+    return { error: "Não foi possível validar a inscrição. Tente novamente em instantes.", success: null };
+  }
+
+  if (!isAllowed) {
+    return { error: "Muitas tentativas de inscrição. Aguarde alguns minutos e tente novamente.", success: null };
+  }
+
   const { data: eventDays } = await admin
     .from("event_days")
     .select("id")
@@ -78,4 +111,3 @@ export async function submitPublicRegistration(
     success: "Inscrição concluída com sucesso. Sua participação foi registrada.",
   };
 }
-

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CopyLinkButton } from "@/app/(dashboard)/events/[eventId]/inscricoes/copy-link-button";
+import { CopyEmbedCodeButton } from "@/app/(dashboard)/events/[eventId]/inscricoes/copy-embed-code-button";
 
 type InscriptionsPageProps = {
   params: Promise<{ eventId: string }>;
@@ -43,6 +44,7 @@ export default async function InscriptionsPage({ params }: InscriptionsPageProps
 
   const total = registrations.length;
   const publicLink = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/inscricao/${eventId}`;
+  const embedLink = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/embed/inscricao/${eventId}`;
 
   return (
     <section>
@@ -53,6 +55,14 @@ export default async function InscriptionsPage({ params }: InscriptionsPageProps
         </div>
         <div className="flex flex-wrap gap-2">
           <CopyLinkButton url={publicLink} />
+          <CopyEmbedCodeButton embedUrl={embedLink} />
+          <Link
+            href={embedLink}
+            target="_blank"
+            className="rounded-xl border border-[var(--outline-variant)]/65 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-container)]"
+          >
+            Visualizar embed
+          </Link>
           <Link
             href={publicLink}
             target="_blank"
@@ -84,6 +94,11 @@ export default async function InscriptionsPage({ params }: InscriptionsPageProps
       <div className="surface-card rounded-xl p-5">
         <h3 className="font-headline text-lg font-bold text-[var(--foreground)]">Link público de inscrição</h3>
         <p className="mt-2 break-all rounded-lg bg-[var(--surface-container-low)] px-3 py-2 text-sm text-muted">{publicLink}</p>
+        <h3 className="mt-5 font-headline text-lg font-bold text-[var(--foreground)]">Link para incorporação</h3>
+        <p className="mt-2 text-sm text-muted">
+          Use este endereço em um bloco <span className="font-semibold">Embed</span> do Notion ou copie o código para adicionar o formulário a uma landing page.
+        </p>
+        <p className="mt-2 break-all rounded-lg bg-[var(--surface-container-low)] px-3 py-2 text-sm text-muted">{embedLink}</p>
       </div>
     </section>
   );

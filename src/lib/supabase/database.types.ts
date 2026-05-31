@@ -112,7 +112,15 @@ export type Database = {
           date?: string;
           created_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "event_days_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       participants: {
         Row: {
@@ -470,7 +478,17 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      check_public_registration_rate_limit: {
+        Args: {
+          p_event_id: string;
+          p_fingerprint_hash: string;
+          p_limit?: number;
+          p_window_seconds?: number;
+        };
+        Returns: boolean;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

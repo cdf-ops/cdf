@@ -9,6 +9,7 @@ import {
 type PublicRegistrationFormProps = {
   eventId: string;
   eventDays: { id: string; date: string }[];
+  embedded?: boolean;
 };
 
 const INITIAL_STATE: PublicRegistrationState = {
@@ -16,12 +17,18 @@ const INITIAL_STATE: PublicRegistrationState = {
   success: null,
 };
 
-export function PublicRegistrationForm({ eventId, eventDays }: PublicRegistrationFormProps) {
+export function PublicRegistrationForm({ eventId, eventDays, embedded = false }: PublicRegistrationFormProps) {
   const [state, action, isPending] = useActionState(submitPublicRegistration, INITIAL_STATE);
 
   return (
-    <form action={action} className="surface-card mt-6 rounded-2xl p-6 md:p-8">
+    <form action={action} className={`surface-card mt-6 rounded-2xl p-6 ${embedded ? "" : "md:p-8"}`}>
       <input type="hidden" name="event_id" value={eventId} />
+      <div className="hidden" aria-hidden="true">
+        <label>
+          Site
+          <input name="website" tabIndex={-1} autoComplete="off" />
+        </label>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="md:col-span-2">
@@ -119,6 +126,12 @@ export function PublicRegistrationForm({ eventId, eventDays }: PublicRegistratio
         </div>
       </div>
 
+      <p className="mt-5 rounded-xl border border-[var(--outline-variant)]/35 bg-[var(--surface-container-low)] p-4 text-xs leading-5 text-muted">
+        Ao concluir a inscrição, você concorda com o uso dos dados informados para a gestão deste evento,
+        incluindo comunicação, credenciamento e controle de participação. Seus dados serão tratados de forma
+        restrita a essas finalidades.
+      </p>
+
       {state.error ? (
         <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-[var(--danger)]">{state.error}</p>
       ) : null}
@@ -136,4 +149,3 @@ export function PublicRegistrationForm({ eventId, eventDays }: PublicRegistratio
     </form>
   );
 }
-
