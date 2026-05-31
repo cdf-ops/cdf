@@ -5,7 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 type EventsPageProps = {
   searchParams: Promise<{
     q?: string;
-    status?: "todos" | "ativo" | "encerrado" | "rascunho";
+    status?: "todos" | "ativo" | "encerrado" | "rascunho" | "arquivado";
+    notice?: string;
+    notice_type?: "success" | "error";
   }>;
 };
 
@@ -13,7 +15,7 @@ type EventListItem = {
   id: string;
   name: string;
   location: string;
-  status: "rascunho" | "ativo" | "encerrado";
+  status: "rascunho" | "ativo" | "encerrado" | "arquivado";
   event_days: { date: string }[] | null;
 };
 
@@ -35,12 +37,15 @@ function formatDateRange(dateList: string[]) {
   return sorted.length === 1 ? first : `${first} - ${last}`;
 }
 
-function statusBadgeClass(status: "rascunho" | "ativo" | "encerrado") {
+function statusBadgeClass(status: "rascunho" | "ativo" | "encerrado" | "arquivado") {
   if (status === "ativo") {
     return "bg-[var(--secondary-soft)] text-[var(--secondary)]";
   }
   if (status === "encerrado") {
     return "bg-rose-100 text-rose-700";
+  }
+  if (status === "arquivado") {
+    return "bg-amber-100 text-amber-800";
   }
   return "bg-[var(--surface-container)] text-[var(--foreground)]";
 }
@@ -49,7 +54,11 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
   const session = await requireSession(["super_adm", "organizador", "recepcao", "expositor"]);
   const params = await searchParams;
   const queryText = (params.q ?? "").trim();
-  const selectedStatus = params.status ?? "todos";
+  const selectedStatus = params.status === "arquivado" && session.role !== "super_adm" ? "todos" : (params.status ?? "todos");
+  const statusOptions =
+    session.role === "super_adm"
+      ? [...STATUS_OPTIONS, { label: "Arquivado", value: "arquivado" } as const]
+      : STATUS_OPTIONS;
 
   const supabase = await createClient();
   let query = supabase
@@ -60,7 +69,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
   if (queryText) {
     query = query.or(`name.ilike.%${queryText}%,location.ilike.%${queryText}%`);
   }
-  if (selectedStatus !== "todos") {
+  if (selectedStatus === "todos") {
+    query = query.neq("status", "arquivado");
+  } else {
     query = query.eq("status", selectedStatus);
   }
 
@@ -83,6 +94,16 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
         </Link>
       </div>
 
+      {params.notice ? (
+        <p
+          className={`mb-6 rounded-xl px-4 py-3 text-sm ${
+            params.notice_type === "success" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-[var(--danger)]"
+          }`}
+        >
+          {params.notice}
+        </p>
+      ) : null}
+
       <form className="shell-card mb-6 rounded-xl p-4">
         <div className="flex flex-col gap-4 md:flex-row">
           <input
@@ -93,7 +114,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
             className="input-surface flex-1 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/10"
           />
           <div className="flex flex-wrap gap-2">
-            {STATUS_OPTIONS.map((item) => (
+            {statusOptions.map((item) => (
               <button
                 key={item.value}
                 name="status"

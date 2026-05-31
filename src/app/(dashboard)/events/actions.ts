@@ -15,6 +15,20 @@ const eventFormSchema = z.object({
   dates: z.array(z.string().date()).min(1, "Selecione ao menos uma data."),
 });
 
+const archiveEventSchema = z.object({
+  eventId: z.string().uuid(),
+  confirmationName: z.string().trim().min(1),
+});
+
+const restoreEventSchema = z.object({
+  eventId: z.string().uuid(),
+});
+
+function withNotice(url: string, type: "success" | "error", message: string) {
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}notice_type=${type}&notice=${encodeURIComponent(message)}`;
+}
+
 function getNormalizedDateList(dateList: string[]) {
   return [...new Set(dateList)].sort((a, b) => (a < b ? -1 : 1));
 }
@@ -112,6 +126,11 @@ export async function updateEventAction(formData: FormData) {
   }
 
   const supabase = createAdminClient();
+  const { data: currentEvent } = await supabase.from("events").select("status").eq("id", eventId).maybeSingle();
+  if (!currentEvent || currentEvent.status === "arquivado") {
+    throw new Error("Evento arquivado não pode ser alterado.");
+  }
+
   const logoFile = getOptionalImageFile(formData, "event_logo");
   const eventUpdatePayload: {
     name: string;
@@ -152,4 +171,104 @@ export async function updateEventAction(formData: FormData) {
 
   revalidatePath("/events");
   revalidatePath(`/events/${eventId}/settings`);
+}
+
+export async function archiveEventAction(formData: FormData) {
+  const session = await requireSession(["super_adm"]);
+  const parsed = archiveEventSchema.safeParse({
+    eventId: formData.get("event_id"),
+    confirmationName: formData.get("confirmation_name"),
+  });
+
+  if (!parsed.success) {
+    redirect(withNotice("/events", "error", "Dados inválidos para arquivar evento."));
+  }
+
+  const admin = createAdminClient();
+  const { data: event } = await admin.from("events").select("id, name, status").eq("id", parsed.data.eventId).maybeSingle();
+
+  if (!event) {
+    redirect(withNotice("/events", "error", "Evento não encontrado."));
+  }
+
+  if (event.name !== parsed.data.confirmationName) {
+    redirect(withNotice(`/events/${event.id}/settings`, "error", "Digite o nome exato do evento para confirmar o arquivamento."));
+  }
+
+  if (event.status === "arquivado") {
+    redirect(withNotice("/events?status=arquivado", "error", "Este evento já está arquivado."));
+  }
+
+  const archivedAt = new Date().toISOString();
+  const { error } = await admin
+    .from("events")
+    .update({
+      status: "arquivado",
+      archived_at: archivedAt,
+      archived_by: session.userId,
+    })
+    .eq("id", event.id);
+
+  if (error) {
+    redirect(withNotice(`/events/${event.id}/settings`, "error", "Não foi possível arquivar o evento."));
+  }
+
+  await admin.from("audit_logs").insert({
+    actor_user_id: session.userId,
+    action: "EVENT_ARCHIVED",
+    context: {
+      event_id: event.id,
+      event_name: event.name,
+      archived_at: archivedAt,
+    },
+  });
+
+  revalidatePath("/events");
+  revalidatePath(`/events/${event.id}/settings`);
+  redirect(withNotice("/events?status=arquivado", "success", "Evento arquivado com sucesso."));
+}
+
+export async function restoreEventAction(formData: FormData) {
+  const session = await requireSession(["super_adm"]);
+  const parsed = restoreEventSchema.safeParse({
+    eventId: formData.get("event_id"),
+  });
+
+  if (!parsed.success) {
+    redirect(withNotice("/events", "error", "Dados inválidos para restaurar evento."));
+  }
+
+  const admin = createAdminClient();
+  const { data: event } = await admin.from("events").select("id, name, status").eq("id", parsed.data.eventId).maybeSingle();
+
+  if (!event || event.status !== "arquivado") {
+    redirect(withNotice("/events", "error", "Evento arquivado não encontrado."));
+  }
+
+  const { error } = await admin
+    .from("events")
+    .update({
+      status: "rascunho",
+      archived_at: null,
+      archived_by: null,
+    })
+    .eq("id", event.id);
+
+  if (error) {
+    redirect(withNotice("/events?status=arquivado", "error", "Não foi possível restaurar o evento."));
+  }
+
+  await admin.from("audit_logs").insert({
+    actor_user_id: session.userId,
+    action: "EVENT_RESTORED",
+    context: {
+      event_id: event.id,
+      event_name: event.name,
+      restored_status: "rascunho",
+    },
+  });
+
+  revalidatePath("/events");
+  revalidatePath(`/events/${event.id}/settings`);
+  redirect(withNotice(`/events/${event.id}/settings`, "success", "Evento restaurado como rascunho."));
 }

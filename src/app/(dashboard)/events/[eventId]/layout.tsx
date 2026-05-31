@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { restoreEventAction } from "@/app/(dashboard)/events/actions";
 import { requireSession } from "@/lib/auth/session";
 import type { AppRole } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
@@ -18,6 +19,34 @@ export default async function EventScopedLayout({ children, params }: EventScope
 
   if (!event) {
     notFound();
+  }
+
+  if (event.status === "arquivado") {
+    return (
+      <section className="surface-card rounded-2xl p-6 md:p-8">
+        <p className="text-sm font-semibold uppercase tracking-wide text-amber-700">Evento arquivado</p>
+        <h1 className="mt-1 font-headline text-3xl font-extrabold tracking-tight text-[var(--foreground)]">{event.name}</h1>
+        <p className="mt-3 text-sm leading-6 text-muted">
+          Os dados e o histórico deste evento foram preservados, mas seus módulos operacionais estão desativados.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link
+            href="/events?status=arquivado"
+            className="rounded-xl border border-[var(--outline-variant)]/65 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--foreground)]"
+          >
+            Voltar aos arquivados
+          </Link>
+          {session.role === "super_adm" ? (
+            <form action={restoreEventAction}>
+              <input type="hidden" name="event_id" value={event.id} />
+              <button type="submit" className="gradient-primary rounded-xl px-4 py-2.5 text-sm font-semibold text-white">
+                Restaurar como rascunho
+              </button>
+            </form>
+          ) : null}
+        </div>
+      </section>
+    );
   }
 
   const navItems: { href: string; label: string; roles: AppRole[] }[] = [
