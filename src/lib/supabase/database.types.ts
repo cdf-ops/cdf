@@ -494,6 +494,33 @@ export type Database = {
         };
         Returns: boolean;
       };
+      list_global_participants: {
+        Args: {
+          p_search?: string;
+          p_event_id?: string;
+          p_city?: string;
+          p_profession?: string;
+          p_last_checkin_from?: string;
+          p_last_checkin_to?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: {
+          participant_id: string;
+          full_name: string;
+          document_type: string;
+          document_number: string;
+          email: string;
+          phone: string;
+          state: string;
+          city: string;
+          profession: string;
+          event_count: number;
+          entry_checkin_count: number;
+          last_checkin_at: string | null;
+          total_count: number;
+        }[];
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
