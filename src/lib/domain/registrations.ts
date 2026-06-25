@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { normalizeDocumentNumber, validateDocumentNumber } from "@/lib/domain/documents";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ParticipantPayload = {
@@ -12,9 +13,7 @@ export type ParticipantPayload = {
   profession: string;
 };
 
-export function normalizeDocumentNumber(value: string) {
-  return value.replace(/\s+/g, "").replace(/[^\p{L}\p{N}]/gu, "").toUpperCase();
-}
+export { normalizeDocumentNumber };
 
 type RegistrationOptions = {
   actorUserId?: string | null;
@@ -30,6 +29,9 @@ export async function registerParticipantInEventDays(
   const admin = createAdminClient();
   const normalizedDocument = normalizeDocumentNumber(payload.documentNumber);
   const normalizedType = payload.documentType.trim().toUpperCase();
+  if (!validateDocumentNumber(normalizedType, normalizedDocument)) {
+    throw new Error("CPF inválido. Revise o número informado.");
+  }
 
   const { data: participantByDocument } = await admin
     .from("participants")

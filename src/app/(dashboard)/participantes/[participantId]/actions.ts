@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth/session";
+import { validateDocumentNumber } from "@/lib/domain/documents";
 import { normalizeDocumentNumber } from "@/lib/domain/registrations";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -57,6 +58,10 @@ export async function updateParticipantDetailsAction(
     const admin = createAdminClient();
     const documentType = parsed.data.documentType.toUpperCase();
     const documentNumber = normalizeDocumentNumber(parsed.data.documentNumber);
+    if (!validateDocumentNumber(documentType, documentNumber)) {
+      return withError("CPF inválido. Revise o número informado.");
+    }
+
     const { data: duplicateParticipant, error: duplicateError } = await admin
       .from("participants")
       .select("id")
