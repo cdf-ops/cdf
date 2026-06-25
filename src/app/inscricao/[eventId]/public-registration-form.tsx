@@ -17,13 +17,11 @@ const INITIAL_STATE: PublicRegistrationState = {
   success: null,
 };
 
-type DocumentType = "CPF" | "RG" | "RNE" | "PASSAPORTE" | "OUTRO";
+type DocumentType = "CPF" | "RNE" | "OUTRO";
 
 const DOCUMENT_INPUT_CONFIG: Record<DocumentType, { maxLength?: number; placeholder?: string }> = {
   CPF: { maxLength: 14, placeholder: "111.111.111-11" },
-  RG: { maxLength: 12, placeholder: "11.111.111-1" },
   RNE: { maxLength: 9, placeholder: "A000000-0" },
-  PASSAPORTE: {},
   OUTRO: {},
 };
 
@@ -34,15 +32,6 @@ function formatCpf(value: string) {
   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
   if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
-}
-
-function formatRg(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 9);
-
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
-  if (digits.length <= 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
-  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}-${digits.slice(8)}`;
 }
 
 function formatRne(value: string) {
@@ -57,7 +46,6 @@ function formatRne(value: string) {
 
 function formatDocumentNumber(value: string, documentType: DocumentType) {
   if (documentType === "CPF") return formatCpf(value);
-  if (documentType === "RG") return formatRg(value);
   if (documentType === "RNE") return formatRne(value);
   return value;
 }
@@ -102,8 +90,6 @@ export function PublicRegistrationForm({ eventId, eventDays, embedded = false }:
             onChange={(event) => handleDocumentTypeChange(event.target.value as DocumentType)}
           >
             <option value="CPF">CPF</option>
-            <option value="RG">RG</option>
-            <option value="PASSAPORTE">Passaporte</option>
             <option value="RNE">RNE</option>
             <option value="OUTRO">Outro</option>
           </select>
@@ -116,7 +102,7 @@ export function PublicRegistrationForm({ eventId, eventDays, embedded = false }:
             required
             value={documentNumber}
             onChange={(event) => setDocumentNumber(formatDocumentNumber(event.target.value, documentType))}
-            inputMode={documentType === "CPF" || documentType === "RG" ? "numeric" : "text"}
+            inputMode={documentType === "CPF" ? "numeric" : "text"}
             maxLength={documentInputConfig.maxLength}
             placeholder={documentInputConfig.placeholder}
             className="w-full rounded-xl border border-[var(--outline-variant)]/50 bg-white px-4 py-3 text-sm outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"

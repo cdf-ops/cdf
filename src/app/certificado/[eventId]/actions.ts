@@ -5,9 +5,15 @@ import { z } from "zod";
 import { createCertificateAccessToken } from "@/lib/certificates/public-token";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+const allowedDocumentTypes = ["CPF", "RNE", "OUTRO"];
+
 const lookupSchema = z.object({
   eventId: z.string().uuid(),
-  documentType: z.string().trim().min(2),
+  documentType: z
+    .string()
+    .trim()
+    .transform((value) => value.toUpperCase())
+    .refine((value) => allowedDocumentTypes.includes(value)),
   documentNumber: z.string().trim().min(3),
 });
 

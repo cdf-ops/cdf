@@ -6,10 +6,16 @@ import { requireSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerParticipantInEventDays } from "@/lib/domain/registrations";
 
+const allowedDocumentTypes = ["CPF", "RNE", "OUTRO"];
+
 const createParticipantSchema = z.object({
   eventId: z.string().uuid(),
   fullName: z.string().trim().min(3, "Nome completo é obrigatório."),
-  documentType: z.string().trim().min(2, "Tipo de documento é obrigatório."),
+  documentType: z
+    .string()
+    .trim()
+    .transform((value) => value.toUpperCase())
+    .refine((value) => allowedDocumentTypes.includes(value), "Tipo de documento inválido."),
   documentNumber: z.string().trim().min(3, "Documento é obrigatório."),
   email: z.string().email("E-mail inválido."),
   phone: z.string().trim().min(8, "Telefone é obrigatório."),
@@ -87,4 +93,3 @@ export async function createParticipantAction(
   revalidatePath(`/events/${parsed.data.eventId}/participants`);
   return { error: null, success: "Participante salvo e incluído nos dias selecionados." };
 }
-

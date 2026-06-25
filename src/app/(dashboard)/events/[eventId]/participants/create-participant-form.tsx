@@ -45,7 +45,6 @@ export function CreateParticipantForm({ eventId, eventDays, canCreate }: CreateP
           className="rounded-lg border border-[var(--outline-variant)]/55 bg-white px-3 py-2 text-sm outline-none focus:border-[var(--primary)]"
         >
           <option value="CPF">CPF</option>
-          <option value="PASSAPORTE">Passaporte</option>
           <option value="RNE">RNE</option>
           <option value="OUTRO">Outro</option>
         </select>
@@ -113,4 +112,3 @@ export function CreateParticipantForm({ eventId, eventDays, canCreate }: CreateP
     </form>
   );
 }
-
