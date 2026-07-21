@@ -1,5 +1,9 @@
 export function normalizeCnpj(value: string) {
-  return value.replace(/\D/g, "");
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+export function hasValidCnpjFormat(value: string) {
+  return /^[A-Z0-9]{12}[0-9]{2}$/.test(normalizeCnpj(value));
 }
 
 export function normalizePhone(value: string) {
@@ -15,10 +19,10 @@ export function formatCnpj(value: string | null) {
     return "-";
   }
 
-  const digits = normalizeCnpj(value);
-  if (digits.length !== 14) {
+  const normalized = normalizeCnpj(value);
+  if (normalized.length !== 14) {
     return value;
   }
 
-  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+  return `${normalized.slice(0, 2)}.${normalized.slice(2, 5)}.${normalized.slice(5, 8)}/${normalized.slice(8, 12)}-${normalized.slice(12)}`;
 }

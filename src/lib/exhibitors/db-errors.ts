@@ -22,7 +22,7 @@ export function mapExhibitorDbErrorToUserMessage(error: DbErrorLike | null | und
   }
 
   if (code === "23514") {
-    return "CNPJ inválido. Informe um CNPJ com 14 dígitos.";
+    return "CNPJ inválido. Informe 14 caracteres, com letras e números nas 12 primeiras posições e números nas 2 últimas.";
   }
 
   if (code === "23502") {

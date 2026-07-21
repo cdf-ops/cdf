@@ -6,7 +6,7 @@ import { requireSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createAuthExhibitorUserByEmail, findAuthUserByEmail } from "@/lib/exhibitors/auth";
 import { mapExhibitorDbErrorToUserMessage, mapUnexpectedExhibitorErrorToUserMessage } from "@/lib/exhibitors/db-errors";
-import { normalizeCnpj, normalizeEmail, normalizePhone } from "@/lib/exhibitors/helpers";
+import { hasValidCnpjFormat, normalizeCnpj, normalizeEmail, normalizePhone } from "@/lib/exhibitors/helpers";
 
 export type ExhibitorDetailState = {
   error: string | null;
@@ -162,8 +162,8 @@ export async function updateExhibitorDetailsAction(
     }
 
     const normalizedCnpj = normalizeCnpj(parsed.data.cnpj);
-    if (normalizedCnpj.length !== 14) {
-      return withError("CNPJ deve conter 14 dígitos.");
+    if (!hasValidCnpjFormat(normalizedCnpj)) {
+      return withError("CNPJ inválido. Informe 14 caracteres, com letras e números nas 12 primeiras posições e números nas 2 últimas.");
     }
 
     const admin = createAdminClient();

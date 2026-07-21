@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   submitPublicRegistration,
   type PublicRegistrationState,
@@ -9,6 +9,7 @@ import {
 type PublicRegistrationFormProps = {
   eventId: string;
   eventDays: { id: string; date: string }[];
+  embedded?: boolean;
 };
 
 const INITIAL_STATE: PublicRegistrationState = {
@@ -16,12 +17,59 @@ const INITIAL_STATE: PublicRegistrationState = {
   success: null,
 };
 
-export function PublicRegistrationForm({ eventId, eventDays }: PublicRegistrationFormProps) {
+type DocumentType = "CPF" | "RNE" | "OUTRO";
+
+const DOCUMENT_INPUT_CONFIG: Record<DocumentType, { maxLength?: number; placeholder?: string }> = {
+  CPF: { maxLength: 14, placeholder: "111.111.111-11" },
+  RNE: { maxLength: 9, placeholder: "A000000-0" },
+  OUTRO: {},
+};
+
+function formatCpf(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+function formatRne(value: string) {
+  const compactValue = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const initialLetter = compactValue.match(/[A-Z]/)?.[0] ?? "";
+  const digits = compactValue.replace(/\D/g, "").slice(0, 7);
+
+  if (!initialLetter) return "";
+  if (digits.length <= 6) return `${initialLetter}${digits}`;
+  return `${initialLetter}${digits.slice(0, 6)}-${digits.slice(6)}`;
+}
+
+function formatDocumentNumber(value: string, documentType: DocumentType) {
+  if (documentType === "CPF") return formatCpf(value);
+  if (documentType === "RNE") return formatRne(value);
+  return value;
+}
+
+export function PublicRegistrationForm({ eventId, eventDays, embedded = false }: PublicRegistrationFormProps) {
   const [state, action, isPending] = useActionState(submitPublicRegistration, INITIAL_STATE);
+  const [documentType, setDocumentType] = useState<DocumentType>("CPF");
+  const [documentNumber, setDocumentNumber] = useState("");
+  const documentInputConfig = DOCUMENT_INPUT_CONFIG[documentType];
+
+  function handleDocumentTypeChange(nextDocumentType: DocumentType) {
+    setDocumentType(nextDocumentType);
+    setDocumentNumber(formatDocumentNumber(documentNumber.replace(/[^\p{L}\p{N}]/gu, ""), nextDocumentType));
+  }
 
   return (
-    <form action={action} className="surface-card mt-6 rounded-2xl p-6 md:p-8">
+    <form action={action} className={`surface-card mt-6 rounded-2xl p-6 ${embedded ? "" : "md:p-8"}`}>
       <input type="hidden" name="event_id" value={eventId} />
+      <div className="hidden" aria-hidden="true">
+        <label>
+          Site
+          <input name="website" tabIndex={-1} autoComplete="off" />
+        </label>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="md:col-span-2">
@@ -38,10 +86,10 @@ export function PublicRegistrationForm({ eventId, eventDays }: PublicRegistratio
           <select
             name="document_type"
             className="w-full rounded-xl border border-[var(--outline-variant)]/50 bg-white px-4 py-3 text-sm outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
-            defaultValue="CPF"
+            value={documentType}
+            onChange={(event) => handleDocumentTypeChange(event.target.value as DocumentType)}
           >
             <option value="CPF">CPF</option>
-            <option value="PASSAPORTE">Passaporte</option>
             <option value="RNE">RNE</option>
             <option value="OUTRO">Outro</option>
           </select>
@@ -52,6 +100,11 @@ export function PublicRegistrationForm({ eventId, eventDays }: PublicRegistratio
           <input
             name="document_number"
             required
+            value={documentNumber}
+            onChange={(event) => setDocumentNumber(formatDocumentNumber(event.target.value, documentType))}
+            inputMode={documentType === "CPF" ? "numeric" : "text"}
+            maxLength={documentInputConfig.maxLength}
+            placeholder={documentInputConfig.placeholder}
             className="w-full rounded-xl border border-[var(--outline-variant)]/50 bg-white px-4 py-3 text-sm outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
           />
         </div>
@@ -119,6 +172,12 @@ export function PublicRegistrationForm({ eventId, eventDays }: PublicRegistratio
         </div>
       </div>
 
+      <p className="mt-5 rounded-xl border border-[var(--outline-variant)]/35 bg-[var(--surface-container-low)] p-4 text-xs leading-5 text-muted">
+        Ao concluir a inscrição, você concorda com o uso dos dados informados para a gestão deste evento,
+        incluindo comunicação, credenciamento e controle de participação. Seus dados serão tratados de forma
+        restrita a essas finalidades.
+      </p>
+
       {state.error ? (
         <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-[var(--danger)]">{state.error}</p>
       ) : null}
@@ -136,4 +195,3 @@ export function PublicRegistrationForm({ eventId, eventDays }: PublicRegistratio
     </form>
   );
 }
-

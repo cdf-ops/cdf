@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { normalizeDocumentNumber, validateDocumentNumber } from "@/lib/domain/documents";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ParticipantPayload = {
@@ -12,9 +13,7 @@ export type ParticipantPayload = {
   profession: string;
 };
 
-export function normalizeDocumentNumber(value: string) {
-  return value.replace(/\s+/g, "").replace(/[^\p{L}\p{N}]/gu, "").toUpperCase();
-}
+export { normalizeDocumentNumber };
 
 type RegistrationOptions = {
   actorUserId?: string | null;
@@ -30,15 +29,19 @@ export async function registerParticipantInEventDays(
   const admin = createAdminClient();
   const normalizedDocument = normalizeDocumentNumber(payload.documentNumber);
   const normalizedType = payload.documentType.trim().toUpperCase();
+  if (!validateDocumentNumber(normalizedType, normalizedDocument)) {
+    throw new Error("CPF inválido. Revise o número informado.");
+  }
 
   const { data: participantByDocument } = await admin
     .from("participants")
-    .select("id")
+    .select("id, participant_number")
     .eq("document_type", normalizedType)
     .eq("document_number", normalizedDocument)
     .maybeSingle();
 
   let participantId = participantByDocument?.id ?? null;
+  let participantNumber = participantByDocument?.participant_number ?? null;
   if (!participantId) {
     const { data: createdParticipant, error: participantError } = await admin
       .from("participants")
@@ -52,7 +55,7 @@ export async function registerParticipantInEventDays(
         city: payload.city.trim(),
         profession: payload.profession.trim(),
       })
-      .select("id")
+      .select("id, participant_number")
       .single();
 
     if (participantError || !createdParticipant) {
@@ -60,6 +63,7 @@ export async function registerParticipantInEventDays(
     }
 
     participantId = createdParticipant.id;
+    participantNumber = createdParticipant.participant_number;
   } else {
     const { error: updateError } = await admin
       .from("participants")
@@ -76,6 +80,10 @@ export async function registerParticipantInEventDays(
     if (updateError) {
       throw new Error("Não foi possível atualizar cadastro existente do participante.");
     }
+  }
+
+  if (!participantNumber) {
+    throw new Error("Não foi possível obter o número global do participante.");
   }
 
   const registrationRows = selectedEventDayIds.map((eventDayId) => ({
@@ -98,9 +106,10 @@ export async function registerParticipantInEventDays(
     context: {
       event_id: eventId,
       participant_id: participantId,
+      participant_number: participantNumber,
       event_day_ids: selectedEventDayIds,
     },
   });
 
-  return { participantId };
+  return { participantId, participantNumber };
 }

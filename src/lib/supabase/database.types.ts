@@ -33,7 +33,9 @@ export type Database = {
           name: string;
           location: string;
           details: string | null;
-          status: "rascunho" | "ativo" | "encerrado";
+          status: "rascunho" | "ativo" | "encerrado" | "arquivado";
+          archived_at: string | null;
+          archived_by: string | null;
           event_logo_path: string | null;
           created_by: string;
           created_at: string;
@@ -44,7 +46,9 @@ export type Database = {
           name: string;
           location: string;
           details?: string | null;
-          status?: "rascunho" | "ativo" | "encerrado";
+          status?: "rascunho" | "ativo" | "encerrado" | "arquivado";
+          archived_at?: string | null;
+          archived_by?: string | null;
           event_logo_path?: string | null;
           created_by: string;
           created_at?: string;
@@ -55,7 +59,9 @@ export type Database = {
           name?: string;
           location?: string;
           details?: string | null;
-          status?: "rascunho" | "ativo" | "encerrado";
+          status?: "rascunho" | "ativo" | "encerrado" | "arquivado";
+          archived_at?: string | null;
+          archived_by?: string | null;
           event_logo_path?: string | null;
           created_by?: string;
           created_at?: string;
@@ -112,11 +118,20 @@ export type Database = {
           date?: string;
           created_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "event_days_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       participants: {
         Row: {
           id: string;
+          participant_number: number;
           full_name: string;
           document_type: string;
           document_number: string;
@@ -130,6 +145,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          participant_number?: number;
           full_name: string;
           document_type: string;
           document_number: string;
@@ -470,7 +486,45 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      check_public_registration_rate_limit: {
+        Args: {
+          p_event_id: string;
+          p_fingerprint_hash: string;
+          p_limit?: number;
+          p_window_seconds?: number;
+        };
+        Returns: boolean;
+      };
+      list_global_participants: {
+        Args: {
+          p_search?: string;
+          p_event_id?: string;
+          p_city?: string;
+          p_profession?: string;
+          p_last_checkin_from?: string;
+          p_last_checkin_to?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: {
+          participant_id: string;
+          participant_number: number;
+          full_name: string;
+          document_type: string;
+          document_number: string;
+          email: string;
+          phone: string;
+          state: string;
+          city: string;
+          profession: string;
+          event_count: number;
+          entry_checkin_count: number;
+          last_checkin_at: string | null;
+          total_count: number;
+        }[];
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

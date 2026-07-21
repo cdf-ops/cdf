@@ -3,11 +3,18 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createCertificateAccessToken } from "@/lib/certificates/public-token";
+import { normalizeDocumentNumber, validateDocumentNumber } from "@/lib/domain/documents";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+const allowedDocumentTypes = ["CPF", "RNE", "OUTRO"];
 
 const lookupSchema = z.object({
   eventId: z.string().uuid(),
-  documentType: z.string().trim().min(2),
+  documentType: z
+    .string()
+    .trim()
+    .transform((value) => value.toUpperCase())
+    .refine((value) => allowedDocumentTypes.includes(value)),
   documentNumber: z.string().trim().min(3),
 });
 
@@ -30,14 +37,20 @@ export async function lookupPublicCertificate(
     return { error: "Informe um documento válido.", eligibleDays: [] };
   }
 
+  const documentType = parsed.data.documentType;
+  const documentNumber = normalizeDocumentNumber(parsed.data.documentNumber);
+  if (!validateDocumentNumber(documentType, documentNumber)) {
+    return { error: "CPF inválido. Revise o número informado.", eligibleDays: [] };
+  }
+
   const admin = createAdminClient();
   const [{ data: event }, { data: participant }] = await Promise.all([
     admin.from("events").select("id").eq("id", parsed.data.eventId).maybeSingle(),
     admin
       .from("participants")
       .select("id")
-      .eq("document_type", parsed.data.documentType)
-      .eq("document_number", parsed.data.documentNumber)
+      .eq("document_type", documentType)
+      .eq("document_number", documentNumber)
       .maybeSingle(),
   ]);
 

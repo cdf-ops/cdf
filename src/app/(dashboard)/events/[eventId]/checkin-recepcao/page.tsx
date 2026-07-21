@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth/session";
+import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerEntryCheckinAction } from "@/app/(dashboard)/events/[eventId]/checkin-recepcao/actions";
 
@@ -51,6 +52,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
 
   const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getDefaultDayId(eventDays);
   const queryText = q.trim();
+  const searchedParticipantNumber = parseParticipantNumberSearch(queryText);
 
   const { data: latestCheckinsRaw } = await admin
     .from("entry_checkins")
@@ -66,7 +68,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
       ? (
           await admin
             .from("participants")
-            .select("id, full_name, document_type, document_number")
+            .select("id, participant_number, full_name, document_type, document_number")
             .in("id", latestParticipantIds)
         ).data ?? []
       : [];
@@ -74,6 +76,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
 
   let searchRows: {
     id: string;
+    participant_number: number;
     full_name: string;
     document_type: string;
     document_number: string;
@@ -84,13 +87,16 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
   }[] = [];
 
   if (queryText.length >= 2) {
-    const { data: participantsRaw } = await admin
+    const participantsQuery = admin
       .from("participants")
-      .select("id, full_name, document_type, document_number, email, phone")
-      .or(
-        `full_name.ilike.%${queryText}%,document_number.ilike.%${queryText}%,email.ilike.%${queryText}%,phone.ilike.%${queryText}%`
-      )
-      .limit(20);
+      .select("id, participant_number, full_name, document_type, document_number, email, phone");
+    const { data: participantsRaw } = searchedParticipantNumber
+      ? await participantsQuery.eq("participant_number", searchedParticipantNumber).limit(1)
+      : await participantsQuery
+          .or(
+            `full_name.ilike.%${queryText}%,document_number.ilike.%${queryText}%,email.ilike.%${queryText}%,phone.ilike.%${queryText}%`
+          )
+          .limit(20);
     const participants = participantsRaw ?? [];
     const participantIds = participants.map((item) => item.id);
 
@@ -138,7 +144,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--primary)]">Terminal de Acesso</p>
             <h2 className="font-headline text-4xl font-extrabold tracking-tight text-[var(--foreground)]">Check-in Digital</h2>
-            <p className="mt-1 text-sm text-muted">Busque por documento, nome, telefone ou e-mail.</p>
+            <p className="mt-1 text-sm text-muted">Digite o número do participante para um check-in mais rápido.</p>
           </div>
 
           <form className="shell-card flex items-end gap-2 rounded-xl p-3">
@@ -178,7 +184,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
           <input
             name="q"
             defaultValue={queryText}
-            placeholder="Buscar por Documento / Nome / Telefone / E-mail"
+            placeholder="Número do participante, nome, documento, telefone ou e-mail"
             className="input-surface md:col-span-3 h-16 rounded-2xl px-5 text-lg font-medium outline-none focus:ring-4 focus:ring-[var(--primary)]/10"
           />
           <button className="gradient-primary h-16 rounded-2xl px-4 text-sm font-semibold text-white">Buscar</button>
@@ -191,6 +197,9 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
             <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
               <div className="surface-card rounded-2xl p-5">
                 <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--primary)]">Participante Encontrado</p>
+                <p className="mt-3 font-mono text-5xl font-black tracking-tight text-[var(--primary)]">
+                  {primaryMatch.participant_number}
+                </p>
                 <p className="mt-1 font-headline text-4xl font-extrabold tracking-tight text-[var(--foreground)]">{primaryMatch.full_name}</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <div>
@@ -245,6 +254,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
               <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
                 <tr>
                   <th className="px-4 py-3">Participante</th>
+                  <th className="px-4 py-3">Número</th>
                   <th className="px-4 py-3">Documento</th>
                   <th className="px-4 py-3">Status no Dia</th>
                   <th className="px-4 py-3 text-right">Acao</th>
@@ -257,6 +267,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                       <p className="font-semibold text-[var(--foreground)]">{row.full_name}</p>
                       <p className="text-xs text-muted">{row.email} | {row.phone}</p>
                     </td>
+                    <td className="px-4 py-3 font-mono text-lg font-black text-[var(--primary)]">{row.participant_number}</td>
                     <td className="px-4 py-3">
                       {row.document_type} {row.document_number}
                     </td>
@@ -289,7 +300,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                 ))}
                 {!searchRows.length ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-6 text-center text-sm text-muted">
+                    <td colSpan={5} className="px-4 py-6 text-center text-sm text-muted">
                       Nenhum participante encontrado para essa busca.
                     </td>
                   </tr>
@@ -317,6 +328,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
             <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
               <tr>
                 <th className="px-3 py-2">Participante</th>
+                <th className="px-3 py-2">Número</th>
                 <th className="px-3 py-2">Documento</th>
                 <th className="px-3 py-2">Hora</th>
                 <th className="px-3 py-2">Origem</th>
@@ -328,6 +340,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                 return (
                   <tr key={item.id}>
                     <td className="px-3 py-2">{participant?.full_name ?? "Participante"}</td>
+                    <td className="px-3 py-2 font-mono font-bold text-[var(--primary)]">{participant?.participant_number ?? "-"}</td>
                     <td className="px-3 py-2">{participant ? `${participant.document_type} ${participant.document_number}` : "-"}</td>
                     <td className="px-3 py-2">{new Date(item.checked_in_at).toLocaleTimeString("pt-BR")}</td>
                     <td className="px-3 py-2">{item.origin}</td>
@@ -336,7 +349,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
               })}
               {!latestCheckins.length ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-4 text-center text-sm text-muted">
+                  <td colSpan={5} className="px-3 py-4 text-center text-sm text-muted">
                     Ainda nao ha check-ins nesse dia.
                   </td>
                 </tr>

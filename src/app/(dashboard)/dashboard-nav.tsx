@@ -21,6 +21,7 @@ export function DashboardNav({ role }: DashboardNavProps) {
     { href: "/events", label: "Eventos", visible: true },
     { href: "/usuarios", label: "Usuários", visible: role === "super_adm" },
     { href: "/expositores", label: "Expositores", visible: ["super_adm", "organizador"].includes(role) },
+    { href: "/participantes", label: "Participantes", visible: ["super_adm", "organizador"].includes(role) },
   ];
 
   return (

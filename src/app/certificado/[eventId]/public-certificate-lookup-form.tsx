@@ -30,7 +30,6 @@ export function PublicCertificateLookupForm({ eventId }: PublicCertificateLookup
             className="h-12 w-full rounded-xl border border-[var(--outline-variant)]/50 bg-white px-4 text-base outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
           >
             <option value="CPF">CPF</option>
-            <option value="PASSAPORTE">Passaporte</option>
             <option value="RNE">RNE</option>
             <option value="OUTRO">Outro</option>
           </select>
