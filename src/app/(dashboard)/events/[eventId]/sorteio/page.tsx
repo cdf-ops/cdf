@@ -77,9 +77,9 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
     winnerParticipantIds.length > 0
       ? await admin
           .from("participants")
-          .select("id, full_name, document_type, document_number")
+          .select("id, participant_number, full_name, document_type, document_number")
           .in("id", winnerParticipantIds)
-      : { data: [] as { id: string; full_name: string; document_type: string; document_number: string }[] };
+      : { data: [] as { id: string; participant_number: number; full_name: string; document_type: string; document_number: string }[] };
   const winnerMap = new Map((winnersData ?? []).map((item) => [item.id, item]));
   const winnersByRaffleId = new Map<string, typeof winnerRows>();
   winnerRows.forEach((winner) => {
@@ -196,7 +196,7 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
                     const winner = winnerMap.get(winnerRow.participant_id);
                     return (
                       <span key={winnerRow.id} className="rounded-full bg-[var(--surface-container-low)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)]">
-                        {winner?.full_name ?? "Participante"}
+                        {winner ? `${winner.participant_number} — ${winner.full_name}` : "Participante"}
                       </span>
                     );
                   })}

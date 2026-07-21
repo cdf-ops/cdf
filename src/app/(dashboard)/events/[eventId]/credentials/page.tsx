@@ -1,4 +1,5 @@
 import { requireSession } from "@/lib/auth/session";
+import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateBadgeAction } from "@/app/(dashboard)/events/[eventId]/credentials/actions";
 
@@ -11,6 +12,7 @@ export default async function CredentialsPage({ params, searchParams }: Credenti
   await requireSession(["super_adm", "organizador"]);
   const { eventId } = await params;
   const { q = "" } = await searchParams;
+  const searchedParticipantNumber = parseParticipantNumberSearch(q);
   const admin = createAdminClient();
 
   const { data: rawEventDays } = await admin.from("event_days").select("id").eq("event_id", eventId);
@@ -31,6 +33,7 @@ export default async function CredentialsPage({ params, searchParams }: Credenti
   const participantIds = [...new Set(registrations.map((registration) => registration.participant_id))];
   let participants: {
     id: string;
+    participant_number: number;
     full_name: string;
     document_type: string;
     document_number: string;
@@ -38,13 +41,16 @@ export default async function CredentialsPage({ params, searchParams }: Credenti
   }[] = [];
 
   if (participantIds.length) {
+    const participantNumberFilter = searchedParticipantNumber
+      ? `participant_number.eq.${searchedParticipantNumber},`
+      : "";
     const { data } = await admin
       .from("participants")
-      .select("id, full_name, document_type, document_number, email")
+      .select("id, participant_number, full_name, document_type, document_number, email")
       .in("id", participantIds)
       .or(
         q
-          ? `full_name.ilike.%${q}%,document_number.ilike.%${q}%,email.ilike.%${q}%`
+          ? `${participantNumberFilter}full_name.ilike.%${q}%,document_number.ilike.%${q}%,email.ilike.%${q}%`
           : "id.not.is.null"
       );
     participants = data ?? [];
@@ -66,7 +72,7 @@ export default async function CredentialsPage({ params, searchParams }: Credenti
           <input
             name="q"
             defaultValue={q}
-            placeholder="Buscar participante"
+            placeholder="Buscar por número, nome ou documento"
             className="w-full rounded-xl border border-[var(--outline-variant)]/55 bg-white px-4 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
           />
         </form>
@@ -76,6 +82,7 @@ export default async function CredentialsPage({ params, searchParams }: Credenti
         <table className="w-full border-collapse text-left text-sm">
           <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
             <tr>
+              <th className="px-4 py-3">Número</th>
               <th className="px-4 py-3">Participante</th>
               <th className="px-4 py-3">Documento</th>
               <th className="px-4 py-3">Status da Credencial</th>
@@ -84,11 +91,21 @@ export default async function CredentialsPage({ params, searchParams }: Credenti
           </thead>
           <tbody className="divide-y divide-[var(--surface-container)]">
             {participants
-              .sort((a, b) => a.full_name.localeCompare(b.full_name, "pt-BR"))
+              .sort((a, b) => {
+                if (searchedParticipantNumber) {
+                  const aExact = a.participant_number === searchedParticipantNumber ? 1 : 0;
+                  const bExact = b.participant_number === searchedParticipantNumber ? 1 : 0;
+                  if (aExact !== bExact) return bExact - aExact;
+                }
+                return a.full_name.localeCompare(b.full_name, "pt-BR");
+              })
               .map((participant) => {
                 const badge = badgeByParticipant.get(participant.id);
                 return (
                   <tr key={participant.id} className="hover:bg-[var(--surface-container-low)]/70">
+                    <td className="px-4 py-3 font-mono text-lg font-black text-[var(--primary)]">
+                      {participant.participant_number}
+                    </td>
                     <td className="px-4 py-3">
                       <p className="font-semibold">{participant.full_name}</p>
                       <p className="text-xs text-muted">{participant.email}</p>
@@ -125,7 +142,7 @@ export default async function CredentialsPage({ params, searchParams }: Credenti
               })}
             {!participants.length ? (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-sm text-muted">
+                <td colSpan={5} className="px-4 py-6 text-center text-sm text-muted">
                   Nenhum participante encontrado para geração de credencial.
                 </td>
               </tr>

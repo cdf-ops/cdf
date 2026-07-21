@@ -5,7 +5,7 @@ import type { Database } from "@/lib/supabase/database.types";
 export type RaffleRoundWinner = {
   id: string;
   fullName: string;
-  documentNumber: string;
+  participantNumber: number;
 };
 
 export type RaffleRoundResult = {
@@ -109,7 +109,7 @@ export async function executeRaffleRound(
 
   const { data: winnerParticipants } = await admin
     .from("participants")
-    .select("id, full_name, document_number")
+    .select("id, participant_number, full_name")
     .in("id", winners);
   const winnerMap = new Map((winnerParticipants ?? []).map((winner) => [winner.id, winner]));
 
@@ -135,7 +135,7 @@ export async function executeRaffleRound(
       return {
         id,
         fullName: winner?.full_name ?? "Participante",
-        documentNumber: winner?.document_number ?? id.slice(0, 8),
+        participantNumber: winner?.participant_number ?? 0,
       };
     }),
   };

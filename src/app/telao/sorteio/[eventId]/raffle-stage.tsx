@@ -159,7 +159,7 @@ export function RaffleStage({ eventId, eventDayId, eventName, eventDate, eligibl
                       {winner.fullName}
                     </p>
                     <p className="mt-3 text-xs font-bold uppercase tracking-[0.18em] text-[var(--outline)]">
-                      Ticket {winner.documentNumber || winner.id.slice(0, 8)}
+                      Participante {winner.participantNumber || "-"}
                     </p>
                   </div>
                 ))}

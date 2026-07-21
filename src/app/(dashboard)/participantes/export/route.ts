@@ -55,6 +55,7 @@ export async function GET(request: Request) {
 
   const lines = [
     [
+      "numero_participante",
       "nome",
       "tipo_documento",
       "documento",
@@ -74,6 +75,7 @@ export async function GET(request: Request) {
         ? String(Math.max(0, Math.floor((Date.now() - lastCheckin.getTime()) / 86_400_000)))
         : "";
       return [
+        String(participant.participant_number),
         participant.full_name,
         participant.document_type,
         participant.document_number,

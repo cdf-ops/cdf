@@ -1,5 +1,6 @@
 import { requireSession } from "@/lib/auth/session";
 import { createAssetSignedUrl } from "@/lib/certificates/assets";
+import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { issueCertificateAction } from "@/app/(dashboard)/events/[eventId]/certificados/actions";
 import { CopyLinkButton } from "@/app/(dashboard)/events/[eventId]/inscricoes/copy-link-button";
@@ -27,6 +28,7 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
   const { eventId } = await params;
   const { day, q = "", notice, notice_type } = await searchParams;
   const queryText = q.trim();
+  const searchedParticipantNumber = parseParticipantNumberSearch(queryText);
   const admin = createAdminClient();
 
   const { data: eventDaysData } = await admin
@@ -65,9 +67,13 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
       ? (
           await admin
             .from("participants")
-            .select("id, full_name, document_type, document_number")
+            .select("id, participant_number, full_name, document_type, document_number")
             .in("id", eligibleIds)
-            .or(queryText ? `full_name.ilike.%${queryText}%,document_number.ilike.%${queryText}%` : "id.not.is.null")
+            .or(
+              queryText
+                ? `${searchedParticipantNumber ? `participant_number.eq.${searchedParticipantNumber},` : ""}full_name.ilike.%${queryText}%,document_number.ilike.%${queryText}%`
+                : "id.not.is.null"
+            )
         ).data ?? []
       : [];
 
@@ -132,7 +138,7 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
           <input
             name="q"
             defaultValue={queryText}
-            placeholder="Buscar participante"
+            placeholder="Buscar por número, nome ou documento"
             className="md:col-span-3 rounded-xl border border-[var(--outline-variant)]/55 bg-white px-4 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
           />
           <select
@@ -154,6 +160,7 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
         <table className="w-full border-collapse text-left text-sm">
           <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
             <tr>
+              <th className="px-4 py-3">Número</th>
               <th className="px-4 py-3">Participante</th>
               <th className="px-4 py-3">Documento</th>
               <th className="px-4 py-3">Status</th>
@@ -167,6 +174,9 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
                 const certificate = certificateMap.get(participant.id);
                 return (
                   <tr key={participant.id}>
+                    <td className="px-4 py-3 font-mono text-lg font-black text-[var(--primary)]">
+                      {participant.participant_number}
+                    </td>
                     <td className="px-4 py-3 font-semibold">{participant.full_name}</td>
                     <td className="px-4 py-3">{participant.document_type} {participant.document_number}</td>
                     <td className="px-4 py-3">
@@ -206,7 +216,7 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
               })}
             {!participants.length ? (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-sm text-muted">
+                <td colSpan={5} className="px-4 py-6 text-center text-sm text-muted">
                   Nenhum participante elegível neste dia.
                 </td>
               </tr>

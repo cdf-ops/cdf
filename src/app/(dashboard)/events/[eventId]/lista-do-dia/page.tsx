@@ -98,7 +98,7 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
       ? (
           await admin
             .from("participants")
-            .select("id, full_name, document_type, document_number")
+            .select("id, participant_number, full_name, document_type, document_number")
             .in("id", participantIds)
         ).data ?? []
       : [];
@@ -178,6 +178,7 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
     const participant = participantMap.get(row.participantId);
     const searchable = [
       participant?.full_name ?? "",
+      String(participant?.participant_number ?? ""),
       participant?.document_type ?? "",
       participant?.document_number ?? "",
       row.type,
@@ -242,7 +243,7 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
           <input
             name="q"
             defaultValue={q}
-            placeholder="Pesquisar por nome ou credencial..."
+            placeholder="Pesquisar por número, nome ou credencial..."
             className="input-surface w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/10"
           />
         </form>
@@ -291,7 +292,7 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
                       <div>
                         <p className="font-semibold text-[var(--foreground)]">{participant?.full_name ?? "Participante"}</p>
                         <p className="text-xs text-muted">
-                          {participant ? `${participant.document_type} ${participant.document_number}` : "-"}
+                          {participant ? `${participant.participant_number} · ${participant.document_type} ${participant.document_number}` : "-"}
                         </p>
                       </div>
                     </div>

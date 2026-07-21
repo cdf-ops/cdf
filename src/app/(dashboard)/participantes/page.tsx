@@ -86,7 +86,7 @@ export default async function ParticipantsPage({ searchParams }: ParticipantsPag
           <input
             name="q"
             defaultValue={filters.q}
-            placeholder="Buscar por nome, documento, e-mail ou telefone"
+            placeholder="Buscar por número, nome, documento, e-mail ou telefone"
             className="rounded-lg border border-[var(--outline-variant)]/55 bg-white px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)] md:col-span-2"
           />
           <select
@@ -150,6 +150,7 @@ export default async function ParticipantsPage({ searchParams }: ParticipantsPag
           <table className="w-full border-collapse text-left text-sm">
             <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
               <tr>
+                <th className="px-4 py-3">Número</th>
                 <th className="px-4 py-3">Participante</th>
                 <th className="px-4 py-3">Documento</th>
                 <th className="px-4 py-3">Localidade</th>
@@ -164,6 +165,9 @@ export default async function ParticipantsPage({ searchParams }: ParticipantsPag
                 const lastCheckin = formatLastCheckin(participant.last_checkin_at);
                 return (
                   <tr key={participant.participant_id} className="hover:bg-[var(--surface-container-low)]/70">
+                    <td className="px-4 py-3 font-mono text-lg font-black text-[var(--primary)]">
+                      {participant.participant_number}
+                    </td>
                     <td className="px-4 py-3">
                       <p className="font-semibold">{participant.full_name}</p>
                       <p className="text-xs text-muted">{participant.email}</p>
@@ -189,7 +193,7 @@ export default async function ParticipantsPage({ searchParams }: ParticipantsPag
               })}
               {!participants.length ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted">
+                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted">
                     Nenhum participante encontrado.
                   </td>
                 </tr>

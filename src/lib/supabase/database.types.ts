@@ -131,6 +131,7 @@ export type Database = {
       participants: {
         Row: {
           id: string;
+          participant_number: number;
           full_name: string;
           document_type: string;
           document_number: string;
@@ -144,6 +145,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          participant_number?: number;
           full_name: string;
           document_type: string;
           document_number: string;
@@ -507,6 +509,7 @@ export type Database = {
         };
         Returns: {
           participant_id: string;
+          participant_number: number;
           full_name: string;
           document_type: string;
           document_number: string;

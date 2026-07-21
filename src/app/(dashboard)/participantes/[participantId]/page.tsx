@@ -30,7 +30,7 @@ export default async function ParticipantDetailPage({ params }: ParticipantDetai
   const [{ data: participant }, { data: registrationsData }, { data: checkinsData }] = await Promise.all([
     admin
       .from("participants")
-      .select("id, full_name, document_type, document_number, email, phone, state, city, profession")
+      .select("id, participant_number, full_name, document_type, document_number, email, phone, state, city, profession")
       .eq("id", participantId)
       .maybeSingle(),
     admin.from("event_registrations").select("event_day_id").eq("participant_id", participantId),
@@ -119,6 +119,9 @@ export default async function ParticipantDetailPage({ params }: ParticipantDetai
         <h1 className="mt-2 font-headline text-3xl font-extrabold tracking-tight text-[var(--foreground)]">
           {participant.full_name}
         </h1>
+        <p className="mt-2 font-mono text-4xl font-black tracking-tight text-[var(--primary)]">
+          {participant.participant_number}
+        </p>
         <p className="mt-1 text-sm text-muted">{participant.document_type} {participant.document_number}</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <div className="rounded-lg border border-[var(--outline-variant)]/40 bg-white p-3">

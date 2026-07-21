@@ -65,7 +65,7 @@ export async function createParticipantAction(
   }
 
   try {
-    await registerParticipantInEventDays(
+    const { participantNumber } = await registerParticipantInEventDays(
       parsed.data.eventId,
       parsed.data.selectedDays,
       {
@@ -83,6 +83,9 @@ export async function createParticipantAction(
         auditAction: "RECEPTION_REGISTRATION_COMPLETED",
       }
     );
+
+    revalidatePath(`/events/${parsed.data.eventId}/participants`);
+    return { error: null, success: `Participante ${participantNumber} salvo e incluído nos dias selecionados.` };
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "Não foi possível criar participante.",
@@ -90,6 +93,4 @@ export async function createParticipantAction(
     };
   }
 
-  revalidatePath(`/events/${parsed.data.eventId}/participants`);
-  return { error: null, success: "Participante salvo e incluído nos dias selecionados." };
 }

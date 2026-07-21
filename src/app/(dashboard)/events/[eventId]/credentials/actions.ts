@@ -23,6 +23,15 @@ export async function generateBadgeAction(formData: FormData) {
   }
 
   const admin = createAdminClient();
+  const { data: participant } = await admin
+    .from("participants")
+    .select("participant_number")
+    .eq("id", parsed.data.participantId)
+    .maybeSingle();
+  if (!participant) {
+    throw new Error("Participante não encontrado.");
+  }
+
   const { data: rawEventDays } = await admin.from("event_days").select("id").eq("event_id", parsed.data.eventId);
   const eventDays = rawEventDays ?? [];
   if (!eventDays.length) {
@@ -86,6 +95,7 @@ export async function generateBadgeAction(formData: FormData) {
       body: JSON.stringify({
         event_id: parsed.data.eventId,
         participant_id: parsed.data.participantId,
+        participant_number: participant.participant_number,
       }),
     }).catch(() => undefined);
   }
@@ -96,6 +106,7 @@ export async function generateBadgeAction(formData: FormData) {
     context: {
       event_id: parsed.data.eventId,
       participant_id: parsed.data.participantId,
+      participant_number: participant.participant_number,
     },
   });
 

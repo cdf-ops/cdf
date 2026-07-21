@@ -1,4 +1,5 @@
 import { requireSession } from "@/lib/auth/session";
+import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerStandCheckinAction } from "@/app/(dashboard)/events/[eventId]/checkin-expositor/actions";
 
@@ -25,6 +26,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
   const { eventId } = await params;
   const { q = "", day, notice, notice_type } = await searchParams;
   const queryText = q.trim();
+  const searchedParticipantNumber = parseParticipantNumberSearch(queryText);
   const admin = createAdminClient();
 
   const { data: eventDaysData } = await admin
@@ -94,7 +96,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
       ? (
           await admin
             .from("participants")
-            .select("id, full_name, document_type, document_number")
+            .select("id, participant_number, full_name, document_type, document_number")
             .in("id", latestParticipantIds)
         ).data ?? []
       : [];
@@ -102,6 +104,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
 
   let searchRows: {
     id: string;
+    participant_number: number;
     full_name: string;
     document_type: string;
     document_number: string;
@@ -110,14 +113,15 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
   }[] = [];
 
   if (eventExhibitor && queryText.length >= 2) {
-    const participants =
-      (
-        await admin
-          .from("participants")
-          .select("id, full_name, document_type, document_number")
+    const participantsQuery = admin
+      .from("participants")
+      .select("id, participant_number, full_name, document_type, document_number");
+    const participantsResult = searchedParticipantNumber
+      ? await participantsQuery.eq("participant_number", searchedParticipantNumber).limit(1)
+      : await participantsQuery
           .or(`full_name.ilike.%${queryText}%,document_number.ilike.%${queryText}%`)
-          .limit(20)
-      ).data ?? [];
+          .limit(20);
+    const participants = participantsResult.data ?? [];
     const participantIds = participants.map((item) => item.id);
 
     const entryCheckins =
@@ -192,7 +196,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
           <input
             name="q"
             defaultValue={queryText}
-            placeholder="Buscar por documento ou nome"
+            placeholder="Número do participante, documento ou nome"
             className="md:col-span-3 rounded-xl border border-[var(--outline-variant)]/55 bg-white px-4 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
           />
           <button className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white">Buscar</button>
@@ -226,6 +230,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
             <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
               <tr>
                 <th className="px-4 py-3">Participante</th>
+                <th className="px-4 py-3">Número</th>
                 <th className="px-4 py-3">Documento</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Ação</th>
@@ -235,6 +240,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
               {searchRows.map((row) => (
                 <tr key={row.id}>
                   <td className="px-4 py-3 font-semibold">{row.full_name}</td>
+                  <td className="px-4 py-3 font-mono text-lg font-black text-[var(--primary)]">{row.participant_number}</td>
                   <td className="px-4 py-3">{row.document_type} {row.document_number}</td>
                   <td className="px-4 py-3">
                     {row.standCheckin ? (
@@ -264,7 +270,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
               ))}
               {!searchRows.length ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-sm text-muted">
+                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-muted">
                     Nenhum participante encontrado para essa busca.
                   </td>
                 </tr>
@@ -281,6 +287,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
             <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
               <tr>
                 <th className="px-3 py-2">Participante</th>
+                <th className="px-3 py-2">Número</th>
                 <th className="px-3 py-2">Documento</th>
                 <th className="px-3 py-2">Hora</th>
               </tr>
@@ -291,6 +298,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
                 return (
                   <tr key={item.id}>
                     <td className="px-3 py-2">{participant?.full_name ?? "Participante"}</td>
+                    <td className="px-3 py-2 font-mono font-bold text-[var(--primary)]">{participant?.participant_number ?? "-"}</td>
                     <td className="px-3 py-2">
                       {participant ? `${participant.document_type} ${participant.document_number}` : "-"}
                     </td>
@@ -300,7 +308,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
               })}
               {!latestStandCheckins.length ? (
                 <tr>
-                  <td colSpan={3} className="px-3 py-4 text-center text-sm text-muted">
+                  <td colSpan={4} className="px-3 py-4 text-center text-sm text-muted">
                     Ainda não há registros no stand para esse dia.
                   </td>
                 </tr>
@@ -312,4 +320,3 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
     </section>
   );
 }
-

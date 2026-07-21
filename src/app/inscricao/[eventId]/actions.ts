@@ -95,7 +95,7 @@ export async function submitPublicRegistration(
   }
 
   try {
-    await registerParticipantInEventDays(parsed.data.eventId, parsed.data.selectedDays, {
+    const { participantNumber } = await registerParticipantInEventDays(parsed.data.eventId, parsed.data.selectedDays, {
       fullName: parsed.data.fullName,
       documentType: parsed.data.documentType,
       documentNumber: parsed.data.documentNumber,
@@ -105,6 +105,11 @@ export async function submitPublicRegistration(
       city: parsed.data.city,
       profession: parsed.data.profession,
     });
+
+    return {
+      error: null,
+      success: `Inscrição concluída. Seu número permanente de participante é ${participantNumber}. Guarde-o para agilizar seus próximos check-ins.`,
+    };
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "Falha ao concluir inscrição.",
@@ -112,8 +117,4 @@ export async function submitPublicRegistration(
     };
   }
 
-  return {
-    error: null,
-    success: "Inscrição concluída com sucesso. Sua participação foi registrada.",
-  };
 }
