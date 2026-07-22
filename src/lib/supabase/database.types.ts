@@ -99,6 +99,57 @@ export type Database = {
         };
         Relationships: [];
       };
+      event_badge_settings: {
+        Row: {
+          event_id: string;
+          city_label: string | null;
+          primary_color: string;
+          secondary_color: string;
+          institutional_text: string | null;
+          schedule_text: string | null;
+          social_url: string | null;
+          facebook_label: string | null;
+          instagram_label: string | null;
+          youtube_label: string | null;
+          certificate_url: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          event_id: string;
+          city_label?: string | null;
+          primary_color?: string;
+          secondary_color?: string;
+          institutional_text?: string | null;
+          schedule_text?: string | null;
+          social_url?: string | null;
+          facebook_label?: string | null;
+          instagram_label?: string | null;
+          youtube_label?: string | null;
+          certificate_url?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          event_id?: string;
+          city_label?: string | null;
+          primary_color?: string;
+          secondary_color?: string;
+          institutional_text?: string | null;
+          schedule_text?: string | null;
+          social_url?: string | null;
+          facebook_label?: string | null;
+          instagram_label?: string | null;
+          youtube_label?: string | null;
+          certificate_url?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       event_days: {
         Row: {
           id: string;
@@ -410,8 +461,12 @@ export type Database = {
           event_id: string;
           qr_slug: string;
           pdf_url: string | null;
-          generated_by: string;
+          generated_by: string | null;
           generated_at: string;
+          download_slug: string;
+          print_count: number;
+          last_printed_at: string | null;
+          last_printed_by: string | null;
         };
         Insert: {
           id?: string;
@@ -419,8 +474,12 @@ export type Database = {
           event_id: string;
           qr_slug: string;
           pdf_url?: string | null;
-          generated_by: string;
+          generated_by?: string | null;
           generated_at?: string;
+          download_slug: string;
+          print_count?: number;
+          last_printed_at?: string | null;
+          last_printed_by?: string | null;
         };
         Update: {
           id?: string;
@@ -428,8 +487,45 @@ export type Database = {
           event_id?: string;
           qr_slug?: string;
           pdf_url?: string | null;
-          generated_by?: string;
+          generated_by?: string | null;
           generated_at?: string;
+          download_slug?: string;
+          print_count?: number;
+          last_printed_at?: string | null;
+          last_printed_by?: string | null;
+        };
+        Relationships: [];
+      };
+      webhook_settings: {
+        Row: {
+          id: string;
+          event_type: "registration.completed" | "credential.generated" | "checkin.completed";
+          webhook_url: string;
+          enabled: boolean;
+          signing_secret: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_type: "registration.completed" | "credential.generated" | "checkin.completed";
+          webhook_url: string;
+          enabled?: boolean;
+          signing_secret?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_type?: "registration.completed" | "credential.generated" | "checkin.completed";
+          webhook_url?: string;
+          enabled?: boolean;
+          signing_secret?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };

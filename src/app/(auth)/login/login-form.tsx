@@ -7,11 +7,12 @@ const INITIAL_STATE: LoginState = {
   error: null,
 };
 
-export function LoginForm() {
+export function LoginForm({ nextPath }: { nextPath?: string }) {
   const [state, action, isPending] = useActionState(loginAction, INITIAL_STATE);
 
   return (
     <form action={action} className="surface-card w-full max-w-md rounded-2xl p-8">
+      <input type="hidden" name="next" value={nextPath ?? "/events"} />
       <h1 className="font-headline text-3xl font-extrabold tracking-tight text-[var(--foreground)]">
         Clube do Frio
       </h1>
@@ -60,4 +61,3 @@ export function LoginForm() {
     </form>
   );
 }
-

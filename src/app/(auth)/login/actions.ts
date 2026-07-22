@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const loginSchema = z.object({
   email: z.string().email("E-mail inválido."),
   password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres."),
+  next: z.string().optional(),
 });
 
 export type LoginState = {
@@ -18,6 +19,7 @@ export async function loginAction(_: LoginState, formData: FormData): Promise<Lo
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
+    next: formData.get("next"),
   });
 
   if (!parsed.success) {
@@ -42,7 +44,8 @@ export async function loginAction(_: LoginState, formData: FormData): Promise<Lo
     });
   }
 
-  redirect("/events");
+  const safeNext = parsed.data.next?.startsWith("/") && !parsed.data.next.startsWith("//") ? parsed.data.next : "/events";
+  redirect(safeNext);
 }
 
 export async function logoutAction() {

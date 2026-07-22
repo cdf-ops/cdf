@@ -5,6 +5,8 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerParticipantInEventDays } from "@/lib/domain/registrations";
+import { ensureParticipantBadge, getApplicationBaseUrl, getCredentialDownloadPath } from "@/lib/badges/tokens";
+import { dispatchConfiguredWebhook } from "@/lib/webhooks/dispatch";
 
 const allowedDocumentTypes = ["CPF", "RNE", "OUTRO"];
 
@@ -29,6 +31,7 @@ const registrationSchema = z.object({
 export type PublicRegistrationState = {
   error: string | null;
   success: string | null;
+  credentialUrl: string | null;
 };
 
 export async function submitPublicRegistration(
@@ -51,20 +54,21 @@ export async function submitPublicRegistration(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos.", success: null };
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos.", success: null, credentialUrl: null };
   }
 
   if (parsed.data.website) {
     return {
       error: null,
       success: "Inscrição concluída com sucesso. Sua participação foi registrada.",
+      credentialUrl: null,
     };
   }
 
   const admin = createAdminClient();
-  const { data: event } = await admin.from("events").select("status").eq("id", parsed.data.eventId).maybeSingle();
+  const { data: event } = await admin.from("events").select("name, status").eq("id", parsed.data.eventId).maybeSingle();
   if (!event || event.status !== "ativo") {
-    return { error: "Este evento não está recebendo inscrições no momento.", success: null };
+    return { error: "Este evento não está recebendo inscrições no momento.", success: null, credentialUrl: null };
   }
 
   const requestHeaders = await headers();
@@ -77,11 +81,11 @@ export async function submitPublicRegistration(
   });
 
   if (rateLimitError) {
-    return { error: "Não foi possível validar a inscrição. Tente novamente em instantes.", success: null };
+    return { error: "Não foi possível validar a inscrição. Tente novamente em instantes.", success: null, credentialUrl: null };
   }
 
   if (!isAllowed) {
-    return { error: "Muitas tentativas de inscrição. Aguarde alguns minutos e tente novamente.", success: null };
+    return { error: "Muitas tentativas de inscrição. Aguarde alguns minutos e tente novamente.", success: null, credentialUrl: null };
   }
 
   const { data: eventDays } = await admin
@@ -91,11 +95,11 @@ export async function submitPublicRegistration(
     .in("id", parsed.data.selectedDays);
 
   if (!eventDays || eventDays.length !== parsed.data.selectedDays.length) {
-    return { error: "Dias selecionados não pertencem ao evento.", success: null };
+    return { error: "Dias selecionados não pertencem ao evento.", success: null, credentialUrl: null };
   }
 
   try {
-    const { participantNumber } = await registerParticipantInEventDays(parsed.data.eventId, parsed.data.selectedDays, {
+    const { participantId, participantNumber } = await registerParticipantInEventDays(parsed.data.eventId, parsed.data.selectedDays, {
       fullName: parsed.data.fullName,
       documentType: parsed.data.documentType,
       documentNumber: parsed.data.documentNumber,
@@ -105,15 +109,41 @@ export async function submitPublicRegistration(
       city: parsed.data.city,
       profession: parsed.data.profession,
     });
+    const badge = await ensureParticipantBadge(admin, {
+      eventId: parsed.data.eventId,
+      participantId,
+      generatedBy: null,
+    });
+    const credentialPath = getCredentialDownloadPath(badge.download_slug);
+    const credentialUrl = `${getApplicationBaseUrl()}${credentialPath}`;
+
+    const webhookPayload = {
+      event_id: parsed.data.eventId,
+      event_name: event.name,
+      participant_id: participantId,
+      participant_number: participantNumber,
+      participant_name: parsed.data.fullName,
+      participant_email: parsed.data.email.toLowerCase(),
+      intended_event_day_ids: parsed.data.selectedDays,
+      credential_url: credentialUrl,
+    };
+    await Promise.allSettled([
+      dispatchConfiguredWebhook(admin, { eventType: "registration.completed", payload: webhookPayload }),
+      ...(badge.created
+        ? [dispatchConfiguredWebhook(admin, { eventType: "credential.generated", payload: webhookPayload })]
+        : []),
+    ]);
 
     return {
       error: null,
       success: `Inscrição concluída. Seu número permanente de participante é ${participantNumber}. Guarde-o para agilizar seus próximos check-ins.`,
+      credentialUrl: credentialPath,
     };
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "Falha ao concluir inscrição.",
       success: null,
+      credentialUrl: null,
     };
   }
 
