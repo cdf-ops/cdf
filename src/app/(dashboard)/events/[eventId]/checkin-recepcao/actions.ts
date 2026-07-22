@@ -51,19 +51,6 @@ export async function registerEntryCheckinAction(formData: FormData) {
     redirect(withNotice(parsed.data.redirectUrl, "error", "Dia de evento inválido."));
   }
 
-  if (parsed.data.includeDay === "true") {
-    await admin.from("event_registrations").upsert(
-      {
-        participant_id: parsed.data.participantId,
-        event_day_id: parsed.data.eventDayId,
-      },
-      {
-        onConflict: "participant_id,event_day_id",
-        ignoreDuplicates: true,
-      }
-    );
-  }
-
   const { data: existingCheckin } = await admin
     .from("entry_checkins")
     .select("id")
@@ -94,10 +81,9 @@ export async function registerEntryCheckinAction(formData: FormData) {
       event_id: parsed.data.eventId,
       event_day_id: parsed.data.eventDayId,
       participant_id: parsed.data.participantId,
-      include_day: parsed.data.includeDay === "true",
+      outside_intended_day: parsed.data.includeDay === "true",
     },
   });
 
   redirect(withNotice(parsed.data.redirectUrl, "success", "Check-in registrado com sucesso."));
 }
-

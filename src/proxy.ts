@@ -9,7 +9,9 @@ export async function proxy(request: NextRequest) {
     (path.startsWith("/events") ||
       path.startsWith("/expositores") ||
       path.startsWith("/usuarios") ||
-      path.startsWith("/participantes")) &&
+      path.startsWith("/participantes") ||
+      path.startsWith("/integracoes") ||
+      path.startsWith("/q/")) &&
     !user
   ) {
     const url = request.nextUrl.clone();
@@ -28,5 +30,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/events/:path*", "/expositores/:path*", "/usuarios/:path*", "/participantes/:path*", "/login"],
+  matcher: ["/", "/events/:path*", "/expositores/:path*", "/usuarios/:path*", "/participantes/:path*", "/integracoes/:path*", "/q/:path*", "/login"],
 };

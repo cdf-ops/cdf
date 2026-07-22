@@ -15,6 +15,7 @@ type PublicRegistrationFormProps = {
 const INITIAL_STATE: PublicRegistrationState = {
   error: null,
   success: null,
+  credentialUrl: null,
 };
 
 type DocumentType = "CPF" | "RNE" | "OUTRO";
@@ -182,7 +183,17 @@ export function PublicRegistrationForm({ eventId, eventDays, embedded = false }:
         <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-[var(--danger)]">{state.error}</p>
       ) : null}
       {state.success ? (
-        <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{state.success}</p>
+        <div className="mt-4 rounded-xl bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
+          <p>{state.success}</p>
+          {state.credentialUrl ? (
+            <a
+              href={state.credentialUrl}
+              className="mt-3 inline-flex rounded-lg bg-emerald-700 px-4 py-2.5 font-semibold text-white transition hover:bg-emerald-800"
+            >
+              Baixar minha credencial em PDF
+            </a>
+          ) : null}
+        </div>
       ) : null}
 
       <button

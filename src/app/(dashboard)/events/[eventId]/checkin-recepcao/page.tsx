@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/auth/session";
 import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerEntryCheckinAction } from "@/app/(dashboard)/events/[eventId]/checkin-recepcao/actions";
+import { BadgeScanner } from "@/app/(dashboard)/events/[eventId]/checkin-recepcao/badge-scanner";
 
 type ReceptionCheckinPageProps = {
   params: Promise<{ eventId: string }>;
@@ -11,6 +12,7 @@ type ReceptionCheckinPageProps = {
     day?: string;
     notice?: string;
     notice_type?: "success" | "error";
+    scan?: string;
   }>;
 };
 
@@ -25,7 +27,7 @@ function getDefaultDayId(eventDays: { id: string; date: string }[]) {
 export default async function ReceptionCheckinPage({ params, searchParams }: ReceptionCheckinPageProps) {
   await requireSession(["super_adm", "organizador", "recepcao"]);
   const { eventId } = await params;
-  const { q = "", day, notice, notice_type } = await searchParams;
+  const { q = "", day, notice, notice_type, scan } = await searchParams;
   const admin = createAdminClient();
 
   const { data: eventDaysData } = await admin
@@ -189,6 +191,8 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
           />
           <button className="gradient-primary h-16 rounded-2xl px-4 text-sm font-semibold text-white">Buscar</button>
         </form>
+
+        <BadgeScanner eventId={eventId} eventDayId={selectedDayId} initialQrValue={scan} />
       </div>
 
       {queryText.length >= 2 ? (
@@ -227,7 +231,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                   ) : primaryMatch.registeredOnDay ? (
                     <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-bold text-blue-700">Inscrito no dia</span>
                   ) : (
-                    <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">Nao inscrito no dia</span>
+                    <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">Dia não previsto na inscrição</span>
                   )}
                 </div>
 
@@ -239,7 +243,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                     <input type="hidden" name="include_day" value={primaryMatch.registeredOnDay ? "false" : "true"} />
                     <input type="hidden" name="redirect_url" value={returnUrl} />
                     <button className="gradient-primary w-full rounded-xl px-4 py-3 text-sm font-semibold text-white">
-                      {primaryMatch.registeredOnDay ? "Confirmar Check-in" : "Incluir no dia e Fazer Check-in"}
+                      {primaryMatch.registeredOnDay ? "Confirmar Check-in" : "Fazer check-in mesmo assim"}
                     </button>
                   </form>
                 ) : (
@@ -277,7 +281,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                       ) : row.registeredOnDay ? (
                         <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-bold text-blue-700">Inscrito no dia</span>
                       ) : (
-                        <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">Nao inscrito no dia</span>
+                        <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">Dia não previsto</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -289,7 +293,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                           <input type="hidden" name="include_day" value={row.registeredOnDay ? "false" : "true"} />
                           <input type="hidden" name="redirect_url" value={returnUrl} />
                           <button className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-white hover:brightness-105">
-                            {row.registeredOnDay ? "Confirmar Check-in" : "Incluir no dia"}
+                            {row.registeredOnDay ? "Confirmar Check-in" : "Fazer check-in mesmo assim"}
                           </button>
                         </form>
                       ) : (
