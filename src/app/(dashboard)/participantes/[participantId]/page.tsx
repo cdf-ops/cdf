@@ -15,6 +15,8 @@ type EventHistory = {
   status: string;
   registeredDays: string[];
   checkins: string[];
+  exhibitorConsent: boolean;
+  consentRecordedAt: string | null;
 };
 
 function formatDaysSince(value: string | null) {
@@ -28,7 +30,12 @@ export default async function ParticipantDetailPage({ params }: ParticipantDetai
   const { participantId } = await params;
   const admin = createAdminClient();
 
-  const [{ data: participant }, { data: registrationsData }, { data: checkinsData }] = await Promise.all([
+  const [
+    { data: participant },
+    { data: registrationsData },
+    { data: checkinsData },
+    { data: consentData },
+  ] = await Promise.all([
     admin
       .from("participants")
       .select("id, participant_number, full_name, document_type, document_number, email, phone, state, city, profession")
@@ -41,6 +48,10 @@ export default async function ParticipantDetailPage({ params }: ParticipantDetai
       .eq("participant_id", participantId)
       .is("deleted_at", null)
       .order("checked_in_at", { ascending: false }),
+    admin
+      .from("participant_event_consents")
+      .select("event_id, exhibitor_data_sharing, recorded_at")
+      .eq("participant_id", participantId),
   ]);
 
   if (!participant) {
@@ -59,7 +70,12 @@ export default async function ParticipantDetailPage({ params }: ParticipantDetai
             .in("id", eventDayIds)
         ).data ?? []
       : [];
-  const eventIds = [...new Set(eventDays.map((item) => item.event_id))];
+  const eventIds = [
+    ...new Set([
+      ...eventDays.map((item) => item.event_id),
+      ...(consentData ?? []).map((item) => item.event_id),
+    ]),
+  ];
   const events =
     eventIds.length > 0
       ? (
@@ -83,6 +99,8 @@ export default async function ParticipantDetailPage({ params }: ParticipantDetai
         status: event.status,
         registeredDays: [],
         checkins: [],
+        exhibitorConsent: false,
+        consentRecordedAt: null,
       },
     ])
   );
@@ -99,6 +117,13 @@ export default async function ParticipantDetailPage({ params }: ParticipantDetai
     const history = day ? historyByEvent.get(day.event_id) : null;
     if (history) {
       history.checkins.push(checkin.checked_in_at);
+    }
+  });
+  (consentData ?? []).forEach((consent) => {
+    const history = historyByEvent.get(consent.event_id);
+    if (history) {
+      history.exhibitorConsent = consent.exhibitor_data_sharing;
+      history.consentRecordedAt = consent.recorded_at;
     }
   });
 
@@ -163,9 +188,25 @@ export default async function ParticipantDetailPage({ params }: ParticipantDetai
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="font-semibold">{event.name}</p>
-                  <span className="mt-1 inline-flex rounded-full bg-[var(--surface-container)] px-2 py-1 text-xs font-bold uppercase">
-                    {event.status}
-                  </span>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <span className="inline-flex rounded-full bg-[var(--surface-container)] px-2 py-1 text-xs font-bold uppercase">
+                      {event.status}
+                    </span>
+                    <span
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-bold ${
+                        event.exhibitorConsent
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      Dados adicionais: {event.exhibitorConsent ? "autorizados" : "não autorizados"}
+                    </span>
+                  </div>
+                  {event.consentRecordedAt ? (
+                    <p className="mt-2 text-xs text-muted">
+                      Escolha registrada em {formatSaoPauloDateTime(event.consentRecordedAt)}
+                    </p>
+                  ) : null}
                 </div>
                 <Link href={`/events/${event.id}/participants`} className="text-sm font-semibold text-[var(--primary)]">
                   Abrir evento

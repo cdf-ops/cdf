@@ -244,6 +244,72 @@ export type Database = {
         };
         Relationships: [];
       };
+      participant_event_consents: {
+        Row: {
+          event_id: string;
+          participant_id: string;
+          exhibitor_data_sharing: boolean;
+          consent_version: string;
+          consent_text: string;
+          source: "public_registration" | "legacy_registration" | "admin";
+          recorded_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          event_id: string;
+          participant_id: string;
+          exhibitor_data_sharing: boolean;
+          consent_version: string;
+          consent_text: string;
+          source: "public_registration" | "legacy_registration" | "admin";
+          recorded_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          exhibitor_data_sharing?: boolean;
+          consent_version?: string;
+          consent_text?: string;
+          source?: "public_registration" | "legacy_registration" | "admin";
+          recorded_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      event_exhibitor_data_settings: {
+        Row: {
+          event_id: string;
+          share_email: boolean;
+          share_phone: boolean;
+          share_profession: boolean;
+          share_city: boolean;
+          share_state: boolean;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          event_id: string;
+          share_email?: boolean;
+          share_phone?: boolean;
+          share_profession?: boolean;
+          share_city?: boolean;
+          share_state?: boolean;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          share_email?: boolean;
+          share_phone?: boolean;
+          share_profession?: boolean;
+          share_city?: boolean;
+          share_state?: boolean;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       entry_checkins: {
         Row: {
           id: string;

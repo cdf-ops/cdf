@@ -7,6 +7,8 @@ import { requireSession } from "@/lib/auth/session";
 import { createAssetSignedUrl } from "@/lib/certificates/assets";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { updateExhibitorDataSettingsAction } from "@/app/(dashboard)/events/[eventId]/settings/exhibitor-data-actions";
+import { getExhibitorDataSettings } from "@/lib/exhibitors/data-sharing";
 
 type EventSettingsPageProps = {
   params: Promise<{ eventId: string }>;
@@ -45,7 +47,10 @@ export default async function EventSettingsPage({ params, searchParams }: EventS
   }
 
   const admin = createAdminClient();
-  const logoUrl = await createAssetSignedUrl(admin, typedEvent.event_logo_path);
+  const [logoUrl, exhibitorDataSettings] = await Promise.all([
+    createAssetSignedUrl(admin, typedEvent.event_logo_path),
+    getExhibitorDataSettings(admin, typedEvent.id),
+  ]);
 
   return (
     <section>
@@ -96,6 +101,53 @@ export default async function EventSettingsPage({ params, searchParams }: EventS
               dates: (typedEvent.event_days ?? []).map((day) => day.date),
             }}
           />
+          {session.role === "super_adm" ? (
+            <div className="surface-card mt-6 rounded-2xl p-6 md:p-8">
+              <div className="max-w-2xl">
+                <p className="text-sm font-semibold uppercase tracking-wide text-[var(--outline)]">
+                  Privacidade e Expositores
+                </p>
+                <h2 className="mt-1 font-headline text-2xl font-extrabold text-[var(--foreground)]">
+                  Dados liberados após a visita ao stand
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  Nome e número único são o padrão. Os campos abaixo somente aparecem quando o participante
+                  autorizou dados adicionais no formulário. CPF e outros documentos nunca são compartilhados.
+                </p>
+              </div>
+              <form action={updateExhibitorDataSettingsAction} className="mt-5">
+                <input type="hidden" name="event_id" value={typedEvent.id} />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    ["share_email", "E-mail", exhibitorDataSettings.share_email],
+                    ["share_phone", "Telefone", exhibitorDataSettings.share_phone],
+                    ["share_profession", "Profissão", exhibitorDataSettings.share_profession],
+                    ["share_city", "Cidade", exhibitorDataSettings.share_city],
+                    ["share_state", "Estado", exhibitorDataSettings.share_state],
+                  ].map(([name, label, checked]) => (
+                    <label
+                      key={String(name)}
+                      className="flex items-center gap-3 rounded-xl border border-[var(--outline-variant)]/45 bg-white p-4 text-sm font-semibold"
+                    >
+                      <input
+                        type="checkbox"
+                        name={String(name)}
+                        defaultChecked={Boolean(checked)}
+                        className="h-5 w-5 accent-[var(--primary)]"
+                      />
+                      {String(label)}
+                    </label>
+                  ))}
+                </div>
+                <SubmitButton
+                  pendingLabel="Salvando..."
+                  className="gradient-primary mt-5 rounded-xl px-5 py-3 text-sm font-semibold text-white"
+                >
+                  Salvar permissões
+                </SubmitButton>
+              </form>
+            </div>
+          ) : null}
           {session.role === "super_adm" ? <ArchiveEventForm eventId={typedEvent.id} eventName={typedEvent.name} /> : null}
         </>
       )}

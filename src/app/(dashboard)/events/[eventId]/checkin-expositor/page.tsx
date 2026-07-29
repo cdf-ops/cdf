@@ -5,6 +5,11 @@ import { formatDateOnly, formatSaoPauloTime, getSaoPauloDateKey } from "@/lib/da
 import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerStandCheckinAction } from "@/app/(dashboard)/events/[eventId]/checkin-expositor/actions";
+import { StandBadgeScanner } from "@/app/(dashboard)/events/[eventId]/checkin-expositor/stand-badge-scanner";
+import {
+  discloseParticipantData,
+  getExhibitorDataSettings,
+} from "@/lib/exhibitors/data-sharing";
 
 type ExhibitorCheckinPageProps = {
   params: Promise<{ eventId: string }>;
@@ -13,6 +18,7 @@ type ExhibitorCheckinPageProps = {
     day?: string;
     notice?: string;
     notice_type?: "success" | "error";
+    scan?: string;
   }>;
 };
 
@@ -27,7 +33,7 @@ function getDefaultDayId(eventDays: { id: string; date: string }[]) {
 export default async function ExhibitorCheckinPage({ params, searchParams }: ExhibitorCheckinPageProps) {
   const session = await requireSession(["expositor"]);
   const { eventId } = await params;
-  const { q = "", day, notice, notice_type } = await searchParams;
+  const { q = "", day, notice, notice_type, scan } = await searchParams;
   const queryText = q.trim();
   const searchedParticipantNumber = parseParticipantNumberSearch(queryText);
   const admin = createAdminClient();
@@ -78,6 +84,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
             .maybeSingle()
         ).data ?? null
       : null;
+  const exhibitorDataSettings = await getExhibitorDataSettings(admin, eventId);
 
   const latestStandCheckins =
     eventExhibitor
@@ -99,31 +106,44 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
       ? (
           await admin
             .from("participants")
-            .select("id, participant_number, full_name, document_type, document_number")
+            .select("id, participant_number, full_name, email, phone, profession, city, state")
             .in("id", latestParticipantIds)
         ).data ?? []
       : [];
-  const latestParticipantMap = new Map(latestParticipants.map((item) => [item.id, item]));
+  const latestConsents =
+    latestParticipantIds.length > 0
+      ? (
+          await admin
+            .from("participant_event_consents")
+            .select("participant_id, exhibitor_data_sharing")
+            .eq("event_id", eventId)
+            .in("participant_id", latestParticipantIds)
+        ).data ?? []
+      : [];
+  const latestConsentMap = new Map(
+    latestConsents.map((item) => [item.participant_id, item.exhibitor_data_sharing])
+  );
+  const latestParticipantMap = new Map(
+    latestParticipants.map((item) => [
+      item.id,
+      discloseParticipantData(item, exhibitorDataSettings, latestConsentMap.get(item.id) === true),
+    ])
+  );
 
   let searchRows: {
     id: string;
-    participant_number: number;
-    full_name: string;
-    document_type: string;
-    document_number: string;
+    participant: ReturnType<typeof discloseParticipantData>;
     entryCheckin: boolean;
     standCheckin: boolean;
   }[] = [];
 
-  if (eventExhibitor && queryText.length >= 2) {
+  if (eventExhibitor && searchedParticipantNumber) {
     const participantsQuery = admin
       .from("participants")
-      .select("id, participant_number, full_name, document_type, document_number");
-    const participantsResult = searchedParticipantNumber
-      ? await participantsQuery.eq("participant_number", searchedParticipantNumber).limit(1)
-      : await participantsQuery
-          .or(`full_name.ilike.%${queryText}%,document_number.ilike.%${queryText}%`)
-          .limit(20);
+      .select("id, participant_number, full_name, email, phone, profession, city, state");
+    const participantsResult = await participantsQuery
+      .eq("participant_number", searchedParticipantNumber)
+      .limit(1);
     const participants = participantsResult.data ?? [];
     const participantIds = participants.map((item) => item.id);
 
@@ -153,14 +173,29 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
           ).data ?? []
         : [];
     const standSet = new Set(standCheckins.map((item) => item.participant_id));
+    const consents =
+      participantIds.length > 0
+        ? (
+            await admin
+              .from("participant_event_consents")
+              .select("participant_id, exhibitor_data_sharing")
+              .eq("event_id", eventId)
+              .in("participant_id", participantIds)
+          ).data ?? []
+        : [];
+    const consentMap = new Map(consents.map((item) => [item.participant_id, item.exhibitor_data_sharing]));
 
     searchRows = participants
       .map((participant) => ({
-        ...participant,
+        id: participant.id,
+        participant: discloseParticipantData(
+          participant,
+          exhibitorDataSettings,
+          consentMap.get(participant.id) === true
+        ),
         entryCheckin: entrySet.has(participant.id),
         standCheckin: standSet.has(participant.id),
-      }))
-      .sort((a, b) => a.full_name.localeCompare(b.full_name, "pt-BR"));
+      }));
   }
 
   const returnUrl = `/events/${eventId}/checkin-expositor?day=${selectedDayId}${queryText ? `&q=${encodeURIComponent(queryText)}` : ""}`;
@@ -184,6 +219,10 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
           Stand: <span className="font-semibold text-[var(--foreground)]">{company.name}</span>
           {eventExhibitor.stand_name ? ` (${eventExhibitor.stand_name})` : ""}
         </p>
+        <p className="mt-2 rounded-lg bg-[var(--surface-container-low)] px-3 py-2 text-xs leading-5 text-muted">
+          Leia o QR Code para registrar a visita. Nome e número sempre aparecem. Os demais dados dependem da
+          autorização do participante e da configuração do evento. CPF e outros documentos nunca são exibidos.
+        </p>
         {notice ? (
           <p
             className={`mt-3 rounded-lg px-3 py-2 text-sm ${
@@ -203,7 +242,8 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
           <input
             name="q"
             defaultValue={queryText}
-            placeholder="Número do participante, documento ou nome"
+            inputMode="numeric"
+            placeholder="Número único do participante"
             className="md:col-span-3 rounded-xl border border-[var(--outline-variant)]/55 bg-white px-4 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
           />
           <SubmitButton
@@ -241,16 +281,16 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
             Trocar dia
           </SubmitButton>
         </Form>
+        <StandBadgeScanner eventId={eventId} eventDayId={selectedDayId} initialQrValue={scan} />
       </div>
 
-      {queryText.length >= 2 ? (
+      {searchedParticipantNumber ? (
         <div className="surface-card overflow-hidden rounded-xl">
           <table className="w-full border-collapse text-left text-sm">
             <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
               <tr>
                 <th className="px-4 py-3">Participante</th>
                 <th className="px-4 py-3">Número</th>
-                <th className="px-4 py-3">Documento</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Ação</th>
               </tr>
@@ -258,9 +298,12 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
             <tbody className="divide-y divide-[var(--surface-container)]">
               {searchRows.map((row) => (
                 <tr key={row.id}>
-                  <td className="px-4 py-3 font-semibold">{row.full_name}</td>
-                  <td className="px-4 py-3 font-mono text-lg font-black text-[var(--primary)]">{row.participant_number}</td>
-                  <td className="px-4 py-3">{row.document_type} {row.document_number}</td>
+                  <td className="px-4 py-3 font-semibold">
+                    {row.participant.full_name}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-lg font-black text-[var(--primary)]">
+                    {row.participant.participant_number}
+                  </td>
                   <td className="px-4 py-3">
                     {row.standCheckin ? (
                       <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">Já registrado no stand</span>
@@ -292,7 +335,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
               ))}
               {!searchRows.length ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-muted">
+                  <td colSpan={4} className="px-4 py-6 text-center text-sm text-muted">
                     Nenhum participante encontrado para essa busca.
                   </td>
                 </tr>
@@ -310,7 +353,6 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
               <tr>
                 <th className="px-3 py-2">Participante</th>
                 <th className="px-3 py-2">Número</th>
-                <th className="px-3 py-2">Documento</th>
                 <th className="px-3 py-2">Hora</th>
               </tr>
             </thead>
@@ -320,17 +362,14 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
                 return (
                   <tr key={item.id}>
                     <td className="px-3 py-2">{participant?.full_name ?? "Participante"}</td>
-                    <td className="px-3 py-2 font-mono font-bold text-[var(--primary)]">{participant?.participant_number ?? "-"}</td>
-                    <td className="px-3 py-2">
-                      {participant ? `${participant.document_type} ${participant.document_number}` : "-"}
-                    </td>
+                    <td className="px-3 py-2 font-mono font-bold text-[var(--primary)]">{participant?.participant_number ?? "—"}</td>
                     <td className="px-3 py-2">{formatSaoPauloTime(item.checked_in_at)}</td>
                   </tr>
                 );
               })}
               {!latestStandCheckins.length ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-4 text-center text-sm text-muted">
+                  <td colSpan={3} className="px-3 py-4 text-center text-sm text-muted">
                     Ainda não há registros no stand para esse dia.
                   </td>
                 </tr>
