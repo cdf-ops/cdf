@@ -66,6 +66,11 @@ export default async function EventScopedLayout({ children, params }: EventScope
     },
     { href: `/events/${eventId}/lista-do-dia`, label: "Lista do Dia", roles: ["super_adm", "organizador", "recepcao"] },
     { href: `/events/${eventId}/checkin-expositor`, label: "Check-in Expositor", roles: ["expositor"] },
+    {
+      href: `/events/${eventId}/credenciais-equipe`,
+      label: "Credenciais da Equipe",
+      roles: ["super_adm", "organizador", "expositor"],
+    },
     { href: `/events/${eventId}/participants`, label: "Participantes", roles: ["super_adm", "organizador", "recepcao", "expositor"] },
     { href: `/events/${eventId}/credentials`, label: "Credenciais", roles: ["super_adm", "organizador"] },
     { href: `/events/${eventId}/sorteio`, label: "Sorteio", roles: ["super_adm", "organizador"] },

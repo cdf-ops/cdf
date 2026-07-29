@@ -354,6 +354,7 @@ export type Database = {
           email: string | null;
           contact_name: string | null;
           notes: string | null;
+          logo_path: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -367,6 +368,7 @@ export type Database = {
           email?: string | null;
           contact_name?: string | null;
           notes?: string | null;
+          logo_path?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -380,6 +382,7 @@ export type Database = {
           email?: string | null;
           contact_name?: string | null;
           notes?: string | null;
+          logo_path?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -427,6 +430,87 @@ export type Database = {
           user_id?: string;
           exhibitor_company_id?: string;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      exhibitor_team_members: {
+        Row: {
+          id: string;
+          exhibitor_company_id: string;
+          full_name: string;
+          job_title: string | null;
+          linked_user_id: string | null;
+          status: "active" | "inactive";
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          exhibitor_company_id: string;
+          full_name: string;
+          job_title?: string | null;
+          linked_user_id?: string | null;
+          status?: "active" | "inactive";
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          exhibitor_company_id?: string;
+          full_name?: string;
+          job_title?: string | null;
+          linked_user_id?: string | null;
+          status?: "active" | "inactive";
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      exhibitor_credentials: {
+        Row: {
+          id: string;
+          event_exhibitor_id: string;
+          team_member_id: string;
+          category: "expositor" | "organizacao" | "palestrante" | "imprensa" | "convidado";
+          status: "active" | "cancelled";
+          generated_at: string;
+          generated_by: string | null;
+          last_printed_at: string | null;
+          last_printed_by: string | null;
+          print_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_exhibitor_id: string;
+          team_member_id: string;
+          category?: "expositor" | "organizacao" | "palestrante" | "imprensa" | "convidado";
+          status?: "active" | "cancelled";
+          generated_at?: string;
+          generated_by?: string | null;
+          last_printed_at?: string | null;
+          last_printed_by?: string | null;
+          print_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_exhibitor_id?: string;
+          team_member_id?: string;
+          category?: "expositor" | "organizacao" | "palestrante" | "imprensa" | "convidado";
+          status?: "active" | "cancelled";
+          generated_at?: string;
+          generated_by?: string | null;
+          last_printed_at?: string | null;
+          last_printed_by?: string | null;
+          print_count?: number;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
