@@ -1,9 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
-export const EXHIBITOR_CONSENT_VERSION = "2026-07-29-v1";
+export const EXHIBITOR_CONSENT_VERSION = "2026-07-29-v2";
+export const EXHIBITOR_MINIMUM_DATA_NOTICE =
+  "Quando você apresentar sua credencial em um estande, seu nome completo e número de participante serão compartilhados com aquele expositor para identificar e registrar a visita. CPF e outros documentos nunca serão compartilhados.";
 export const EXHIBITOR_CONSENT_TEXT =
-  "Autorizo o compartilhamento dos meus dados com os expositores deste evento quando eu visitar seus estandes. Cada expositor acessará somente os dados liberados pela organização. Meu documento não será compartilhado. Posso recusar sem impedir minha inscrição ou participação.";
+  "Autorizo o compartilhamento de dados adicionais com os expositores cujos estandes eu visitar. Cada expositor acessará somente os campos adicionais liberados pela organização, como contato, profissão ou localidade. Posso recusar sem impedir minha inscrição, entrada ou visita aos estandes.";
 
 export type ExhibitorDataSettings = {
   share_email: boolean;
@@ -47,17 +49,15 @@ type ParticipantData = {
 export function discloseParticipantData(
   participant: ParticipantData,
   settings: ExhibitorDataSettings,
-  consentGranted: boolean
+  additionalDataConsentGranted: boolean
 ) {
-  if (!consentGranted) return null;
-
   return {
     participant_number: participant.participant_number,
     full_name: participant.full_name,
-    ...(settings.share_email ? { email: participant.email } : {}),
-    ...(settings.share_phone ? { phone: participant.phone } : {}),
-    ...(settings.share_profession ? { profession: participant.profession } : {}),
-    ...(settings.share_city ? { city: participant.city } : {}),
-    ...(settings.share_state ? { state: participant.state } : {}),
+    ...(additionalDataConsentGranted && settings.share_email ? { email: participant.email } : {}),
+    ...(additionalDataConsentGranted && settings.share_phone ? { phone: participant.phone } : {}),
+    ...(additionalDataConsentGranted && settings.share_profession ? { profession: participant.profession } : {}),
+    ...(additionalDataConsentGranted && settings.share_city ? { city: participant.city } : {}),
+    ...(additionalDataConsentGranted && settings.share_state ? { state: participant.state } : {}),
   };
 }

@@ -112,7 +112,7 @@ export default async function EventSettingsPage({ params, searchParams }: EventS
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-muted">
                   Nome e número único são o padrão. Os campos abaixo somente aparecem quando o participante
-                  autorizou o compartilhamento no formulário. CPF e outros documentos nunca são compartilhados.
+                  autorizou dados adicionais no formulário. CPF e outros documentos nunca são compartilhados.
                 </p>
               </div>
               <form action={updateExhibitorDataSettingsAction} className="mt-5">

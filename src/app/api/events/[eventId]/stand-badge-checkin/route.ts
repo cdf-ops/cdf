@@ -97,10 +97,11 @@ export async function POST(
     );
   }
 
+  const additionalDataConsentGranted = consent?.exhibitor_data_sharing === true;
   const sharedParticipant = discloseParticipantData(
     participant,
     settings,
-    consent?.exhibitor_data_sharing === true
+    additionalDataConsentGranted
   );
   const { data: existing } = await admin
     .from("stand_checkins")
@@ -114,11 +115,11 @@ export async function POST(
     return Response.json({
       status: "already_checked_in",
       participant: sharedParticipant,
-      consentGranted: Boolean(sharedParticipant),
+      additionalDataConsentGranted,
       checkedInAt: existing.checked_in_at,
-      message: sharedParticipant
+      message: additionalDataConsentGranted
         ? `${sharedParticipant.full_name} já foi registrado neste stand hoje.`
-        : "Visita já registrada — participante não autorizou o compartilhamento de dados.",
+        : `${sharedParticipant.full_name} já foi registrado neste stand hoje. Dados adicionais não autorizados.`,
     });
   }
 
@@ -142,17 +143,17 @@ export async function POST(
       event_day_id: eventDay.id,
       participant_id: badge.participant_id,
       event_exhibitor_id: eventExhibitor.id,
-      consent_granted: Boolean(sharedParticipant),
+      additional_data_consent_granted: additionalDataConsentGranted,
     },
   });
 
   return Response.json({
     status: error?.code === "23505" ? "already_checked_in" : "checked_in",
     participant: sharedParticipant,
-    consentGranted: Boolean(sharedParticipant),
+    additionalDataConsentGranted,
     checkedInAt,
-    message: sharedParticipant
+    message: additionalDataConsentGranted
       ? `Visita de ${sharedParticipant.full_name} registrada com sucesso.`
-      : "Visita registrada — participante não autorizou o compartilhamento de dados.",
+      : `Visita de ${sharedParticipant.full_name} registrada. Dados adicionais não autorizados.`,
   });
 }

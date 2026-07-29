@@ -220,8 +220,8 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
           {eventExhibitor.stand_name ? ` (${eventExhibitor.stand_name})` : ""}
         </p>
         <p className="mt-2 rounded-lg bg-[var(--surface-container-low)] px-3 py-2 text-xs leading-5 text-muted">
-          Leia o QR Code para registrar a visita. Os dados somente aparecem quando o participante autorizou o
-          compartilhamento. CPF e outros documentos nunca são exibidos.
+          Leia o QR Code para registrar a visita. Nome e número sempre aparecem. Os demais dados dependem da
+          autorização do participante e da configuração do evento. CPF e outros documentos nunca são exibidos.
         </p>
         {notice ? (
           <p
@@ -299,10 +299,10 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
               {searchRows.map((row) => (
                 <tr key={row.id}>
                   <td className="px-4 py-3 font-semibold">
-                    {row.participant?.full_name ?? "Dados não autorizados"}
+                    {row.participant.full_name}
                   </td>
                   <td className="px-4 py-3 font-mono text-lg font-black text-[var(--primary)]">
-                    {row.participant?.participant_number ?? "—"}
+                    {row.participant.participant_number}
                   </td>
                   <td className="px-4 py-3">
                     {row.standCheckin ? (
@@ -361,7 +361,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
                 const participant = latestParticipantMap.get(item.participant_id);
                 return (
                   <tr key={item.id}>
-                    <td className="px-3 py-2">{participant?.full_name ?? "Visita sem dados compartilhados"}</td>
+                    <td className="px-3 py-2">{participant?.full_name ?? "Participante"}</td>
                     <td className="px-3 py-2 font-mono font-bold text-[var(--primary)]">{participant?.participant_number ?? "—"}</td>
                     <td className="px-3 py-2">{formatSaoPauloTime(item.checked_in_at)}</td>
                   </tr>

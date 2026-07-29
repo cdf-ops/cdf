@@ -8,7 +8,10 @@ import {
 import { formatDateOnly } from "@/lib/date-time";
 import { isValidBrazilianPhone } from "@/lib/domain/contacts";
 import { isValidCpf } from "@/lib/domain/documents";
-import { EXHIBITOR_CONSENT_TEXT } from "@/lib/exhibitors/data-sharing";
+import {
+  EXHIBITOR_CONSENT_TEXT,
+  EXHIBITOR_MINIMUM_DATA_NOTICE,
+} from "@/lib/exhibitors/data-sharing";
 
 type PublicRegistrationFormProps = {
   eventId: string;
@@ -431,6 +434,10 @@ export function PublicRegistrationForm({ eventId, eventDays, embedded = false }:
           Ao concluir a inscrição, seus dados serão utilizados pela organização para gestão do evento,
           comunicação, credenciamento e controle de participação.
         </p>
+        <div className="rounded-xl border border-[var(--outline-variant)]/35 bg-white p-4">
+          <p className="text-sm font-bold text-[var(--foreground)]">Identificação durante a visita aos estandes</p>
+          <p className="mt-1 text-xs leading-5 text-muted">{EXHIBITOR_MINIMUM_DATA_NOTICE}</p>
+        </div>
         <label className="flex items-start gap-3 rounded-xl border border-[var(--primary)]/25 bg-[var(--primary-soft)]/20 p-4">
           <input
             type="checkbox"
@@ -441,7 +448,7 @@ export function PublicRegistrationForm({ eventId, eventDays, embedded = false }:
           />
           <span>
             <span className="block text-sm font-bold text-[var(--foreground)]">
-              Compartilhamento com expositores
+              Autorizar dados adicionais
             </span>
             <span className="mt-1 block text-xs leading-5 text-muted">{EXHIBITOR_CONSENT_TEXT}</span>
             <span className="mt-2 block text-xs font-semibold text-[var(--foreground)]">

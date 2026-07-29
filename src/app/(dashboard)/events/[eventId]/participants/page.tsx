@@ -148,8 +148,8 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
         );
         return {
           participantId: participant.id,
-          participantNumber: shared?.participant_number ?? 0,
-          fullName: shared?.full_name ?? "Visita sem dados compartilhados",
+          participantNumber: shared.participant_number,
+          fullName: shared.full_name,
           document: "",
           email: shared?.email ?? "",
           phone: shared?.phone ?? "",
@@ -157,7 +157,7 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
           city: shared?.city ?? "",
           state: shared?.state ?? "",
           days: participantDayMap.get(participant.id) ?? [],
-          consentGranted: Boolean(shared),
+          consentGranted: consentMap.get(participant.id) === true,
         };
       })
       .filter((participant) => {
@@ -165,7 +165,7 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
         if (!search) return true;
         return (
           (participant.participantNumber > 0 && String(participant.participantNumber) === search) ||
-          (participant.consentGranted && participant.fullName.toLocaleLowerCase("pt-BR").includes(search))
+          participant.fullName.toLocaleLowerCase("pt-BR").includes(search)
         );
       })
       .sort((a, b) => {
@@ -310,8 +310,8 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
                 <th className="px-4 py-3">Número</th>
                 <th className="px-4 py-3">Participante</th>
                 {!isExhibitor ? <th className="px-4 py-3">Documento</th> : null}
-                <th className="px-4 py-3">{isExhibitor ? "Dados autorizados" : "Contato"}</th>
-                {canViewConsent ? <th className="px-4 py-3">Consentimento expositor</th> : null}
+                <th className="px-4 py-3">{isExhibitor ? "Dados adicionais" : "Contato"}</th>
+                {canViewConsent ? <th className="px-4 py-3">Dados adicionais no expositor</th> : null}
                 <th className="px-4 py-3">{dayColumnLabel}</th>
               </tr>
             </thead>
@@ -336,7 +336,7 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
                           ) : null}
                         </div>
                       ) : (
-                        <span className="text-xs font-semibold text-muted">Não autorizado</span>
+                        <span className="text-xs font-semibold text-muted">Não autorizados; nome e número mantidos</span>
                       )
                     ) : (
                       <>
@@ -354,7 +354,7 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
                             : "bg-slate-100 text-slate-700"
                         }`}
                       >
-                        {row.consentGranted ? "Autorizado" : "Não autorizado"}
+                        {row.consentGranted ? "Autorizados" : "Não autorizados"}
                       </span>
                     </td>
                   ) : null}

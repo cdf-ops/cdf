@@ -199,7 +199,7 @@ export default async function ParticipantDetailPage({ params }: ParticipantDetai
                           : "bg-slate-100 text-slate-700"
                       }`}
                     >
-                      Expositores: {event.exhibitorConsent ? "autorizado" : "não autorizado"}
+                      Dados adicionais: {event.exhibitorConsent ? "autorizados" : "não autorizados"}
                     </span>
                   </div>
                   {event.consentRecordedAt ? (
