@@ -1,5 +1,7 @@
 import { saveWebhookSettingAction } from "@/app/(dashboard)/integracoes/actions";
+import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
+import { formatSaoPauloDateTime } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { WEBHOOK_EVENT_TYPES, type WebhookEventType } from "@/lib/webhooks/dispatch";
 
@@ -85,11 +87,11 @@ export default async function IntegrationsPage() {
 
               <div className="mt-5 flex items-center justify-between gap-3">
                 <p className="text-xs text-muted">
-                  {setting?.updated_at ? `Última alteração: ${new Date(setting.updated_at).toLocaleString("pt-BR")}` : "Ainda não configurado"}
+                  {setting?.updated_at ? `Última alteração: ${formatSaoPauloDateTime(setting.updated_at)}` : "Ainda não configurado"}
                 </p>
-                <button type="submit" className="gradient-primary rounded-xl px-5 py-2.5 text-sm font-semibold text-white">
+                <SubmitButton pendingLabel="Salvando..." className="gradient-primary rounded-xl px-5 py-2.5 text-sm font-semibold text-white">
                   Salvar Webhook
-                </button>
+                </SubmitButton>
               </div>
             </form>
           );

@@ -1,7 +1,10 @@
+import Form from "next/form";
 import { requireSession } from "@/lib/auth/session";
 import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { resolveBadgeSettings } from "@/lib/badges/settings";
+import { formatSaoPauloDateTime } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { SubmitButton } from "@/components/submit-button";
 import {
   generateBadgeAction,
   saveBadgeSettingsAction,
@@ -125,7 +128,9 @@ export default async function CredentialsPage({ params, searchParams }: Credenti
             <input name="certificate_url" type="url" defaultValue={settings.certificate_url ?? ""} className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-mono font-normal" placeholder="Usa a página de certificados quando vazio" />
           </label>
           <div className="md:col-span-2 flex justify-end">
-            <button className="gradient-primary rounded-xl px-5 py-2.5 text-sm font-semibold text-white">Salvar modelo</button>
+            <SubmitButton pendingLabel="Salvando..." className="gradient-primary rounded-xl px-5 py-2.5 text-sm font-semibold text-white">
+              Salvar modelo
+            </SubmitButton>
           </div>
         </form>
       </details>
@@ -137,9 +142,12 @@ export default async function CredentialsPage({ params, searchParams }: Credenti
             <p className="mt-1 text-sm text-muted">Selecione pessoas ou deixe tudo desmarcado para gerar o evento inteiro.</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <form className="w-full max-w-sm">
+            <Form action={`/events/${eventId}/credentials`} scroll={false} className="flex w-full max-w-md gap-2">
               <input name="q" defaultValue={q} placeholder="Buscar por número, nome ou documento" className="w-full rounded-xl border bg-white px-4 py-2.5 text-sm outline-none focus:border-[var(--primary)]" />
-            </form>
+              <SubmitButton pendingLabel="Buscando..." className="rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold">
+                Buscar
+              </SubmitButton>
+            </Form>
             <form id="batch-credentials-form" method="post" action={`/api/events/${eventId}/credentials`}>
               <button className="gradient-primary whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold text-white">Baixar PDF para impressão</button>
             </form>
@@ -175,7 +183,7 @@ export default async function CredentialsPage({ params, searchParams }: Credenti
                         <div>
                           <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">Gerada</span>
                           <p className="mt-1 text-xs text-muted">
-                            {badge.last_printed_at ? `Impressa em ${new Date(badge.last_printed_at).toLocaleString("pt-BR")}` : "Ainda não impressa"}
+                            {badge.last_printed_at ? `Impressa em ${formatSaoPauloDateTime(badge.last_printed_at)}` : "Ainda não impressa"}
                           </p>
                         </div>
                       ) : (
@@ -189,7 +197,12 @@ export default async function CredentialsPage({ params, searchParams }: Credenti
                         <form action={generateBadgeAction}>
                           <input type="hidden" name="event_id" value={eventId} />
                           <input type="hidden" name="participant_id" value={participant.id} />
-                          <button className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-white">Gerar credencial</button>
+                          <SubmitButton
+                            pendingLabel="Gerando..."
+                            className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-white"
+                          >
+                            Gerar credencial
+                          </SubmitButton>
                         </form>
                       )}
                     </td>

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { EventForm } from "@/app/(dashboard)/events/_components/event-form";
 import { restoreEventAction, updateEventAction } from "@/app/(dashboard)/events/actions";
 import { ArchiveEventForm } from "@/app/(dashboard)/events/[eventId]/settings/archive-event-form";
+import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
 import { createAssetSignedUrl } from "@/lib/certificates/assets";
 import { createClient } from "@/lib/supabase/server";
@@ -74,9 +75,9 @@ export default async function EventSettingsPage({ params, searchParams }: EventS
           {session.role === "super_adm" ? (
             <form action={restoreEventAction} className="mt-5">
               <input type="hidden" name="event_id" value={typedEvent.id} />
-              <button type="submit" className="gradient-primary rounded-xl px-5 py-2.5 text-sm font-semibold text-white">
+              <SubmitButton pendingLabel="Restaurando..." className="gradient-primary rounded-xl px-5 py-2.5 text-sm font-semibold text-white">
                 Restaurar como rascunho
-              </button>
+              </SubmitButton>
             </form>
           ) : null}
         </div>

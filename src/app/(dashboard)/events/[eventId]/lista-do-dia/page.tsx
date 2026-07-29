@@ -1,4 +1,7 @@
+import Form from "next/form";
 import { requireSession } from "@/lib/auth/session";
+import { SubmitButton } from "@/components/submit-button";
+import { formatDateOnly, formatSaoPauloTime, getSaoPauloDateKey, getSaoPauloHour } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type DayListPageProps = {
@@ -20,7 +23,7 @@ function getDefaultDayId(eventDays: { id: string; date: string }[]) {
   if (!eventDays.length) {
     return "";
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getSaoPauloDateKey();
   return eventDays.find((day) => day.date === today)?.id ?? eventDays[0].id;
 }
 
@@ -168,7 +171,7 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
   const presentParticipants = new Set(entryCheckins.map((item) => item.participant_id)).size;
   const occupancyRate = expectedParticipants > 0 ? Math.round((presentParticipants / expectedParticipants) * 100) : 0;
 
-  const hourlyBuckets = new Set(rows.map((row) => new Date(row.checkedAt).getHours()));
+  const hourlyBuckets = new Set(rows.map((row) => getSaoPauloHour(row.checkedAt)));
   const checkinsPerHour = rows.length > 0 ? Math.round(rows.length / Math.max(1, hourlyBuckets.size)) : 0;
 
   const filteredRows = rows.filter((row) => {
@@ -240,7 +243,11 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
           Últimos Registros
         </h2>
 
-        <form className="w-full md:max-w-sm">
+        <Form
+          action={`/events/${eventId}/lista-do-dia`}
+          scroll={false}
+          className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_auto] md:max-w-lg"
+        >
           <input type="hidden" name="day" value={selectedDayId} />
           <input
             name="q"
@@ -248,11 +255,21 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
             placeholder="Pesquisar por número, nome ou credencial..."
             className="input-surface w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/10"
           />
-        </form>
+          <SubmitButton
+            pendingLabel="Buscando..."
+            className="gradient-primary min-h-11 rounded-xl px-4 text-sm font-semibold text-white"
+          >
+            Buscar
+          </SubmitButton>
+        </Form>
       </div>
 
       <div className="surface-card overflow-hidden rounded-xl">
-        <form className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 bg-[var(--surface-container-low)] px-4 py-3 sm:flex sm:flex-wrap">
+        <Form
+          action={`/events/${eventId}/lista-do-dia`}
+          scroll={false}
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 bg-[var(--surface-container-low)] px-4 py-3 sm:flex sm:flex-wrap"
+        >
           <input type="hidden" name="q" value={q} />
           <div className="min-w-0">
             <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Dia do Evento</label>
@@ -263,15 +280,18 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
             >
               {eventDays.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {new Date(item.date).toLocaleDateString("pt-BR")}
+                  {formatDateOnly(item.date)}
                 </option>
               ))}
             </select>
           </div>
-          <button className="ghost-border min-h-11 rounded-lg bg-[var(--surface-container-lowest)] px-4 text-sm font-semibold text-[var(--foreground)]">
+          <SubmitButton
+            pendingLabel="Trocando..."
+            className="ghost-border min-h-11 rounded-lg bg-[var(--surface-container-lowest)] px-4 text-sm font-semibold text-[var(--foreground)]"
+          >
             Trocar dia
-          </button>
-        </form>
+          </SubmitButton>
+        </Form>
 
         <div className="divide-y divide-[var(--surface-container)] md:hidden">
           {filteredRows.slice(0, 100).map((row) => {
@@ -293,7 +313,7 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
                         </p>
                       </div>
                       <time className="shrink-0 text-sm font-bold text-[var(--foreground)]">
-                        {new Date(row.checkedAt).toLocaleTimeString("pt-BR", {
+                        {formatSaoPauloTime(row.checkedAt, {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
@@ -353,7 +373,7 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-semibold text-[var(--foreground)]">{new Date(row.checkedAt).toLocaleTimeString("pt-BR")}</td>
+                  <td className="px-4 py-3 font-semibold text-[var(--foreground)]">{formatSaoPauloTime(row.checkedAt)}</td>
                   <td className="px-4 py-3">
                     <div className="space-y-1">
                       <span

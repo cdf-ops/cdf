@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/auth/session";
+import { formatDateOnly } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CopyLinkButton } from "@/app/(dashboard)/events/[eventId]/inscricoes/copy-link-button";
 import { CopyEmbedCodeButton } from "@/app/(dashboard)/events/[eventId]/inscricoes/copy-embed-code-button";
@@ -83,7 +84,7 @@ export default async function InscriptionsPage({ params }: InscriptionsPageProps
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {eventDays.map((day) => (
               <div key={day.id} className="rounded-lg border border-[var(--outline-variant)]/40 bg-white px-3 py-2">
-                <p className="text-xs text-muted">{new Date(day.date).toLocaleDateString("pt-BR")}</p>
+                <p className="text-xs text-muted">{formatDateOnly(day.date)}</p>
                 <p className="font-headline text-xl font-bold text-[var(--foreground)]">{countsByDay.get(day.id) ?? 0}</p>
               </div>
             ))}

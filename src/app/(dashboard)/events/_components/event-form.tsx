@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { SubmitButton } from "@/components/submit-button";
+import { getSaoPauloDateKey } from "@/lib/date-time";
 
 type EventFormProps = {
   mode: "create" | "update";
@@ -22,7 +24,7 @@ function toInputDate(date: string) {
 
 export function EventForm({ mode, action, initialData }: EventFormProps) {
   const [dates, setDates] = useState<string[]>(
-    initialData?.dates.length ? initialData.dates.map(toInputDate) : [new Date().toISOString().slice(0, 10)]
+    initialData?.dates.length ? initialData.dates.map(toInputDate) : [getSaoPauloDateKey()]
   );
   const [newDate, setNewDate] = useState("");
 
@@ -158,9 +160,9 @@ export function EventForm({ mode, action, initialData }: EventFormProps) {
       </div>
 
       <div className="mt-8 flex justify-end">
-        <button type="submit" className="gradient-primary rounded-xl px-5 py-2.5 text-sm font-semibold text-white">
+        <SubmitButton pendingLabel="Salvando..." className="gradient-primary rounded-xl px-5 py-2.5 text-sm font-semibold text-white">
           {mode === "create" ? "Salvar Evento" : "Salvar Alterações"}
-        </button>
+        </SubmitButton>
       </div>
     </form>
   );

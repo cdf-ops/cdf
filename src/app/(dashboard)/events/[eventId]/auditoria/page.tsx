@@ -1,5 +1,8 @@
 import Link from "next/link";
+import Form from "next/form";
+import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
+import { formatSaoPauloDateTime } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type AuditPageProps = {
@@ -25,13 +28,13 @@ function inDateRange(value: string, from?: string, to?: string) {
     return false;
   }
   if (from) {
-    const fromTime = new Date(`${from}T00:00:00`).getTime();
+    const fromTime = new Date(`${from}T00:00:00-03:00`).getTime();
     if (time < fromTime) {
       return false;
     }
   }
   if (to) {
-    const toTime = new Date(`${to}T23:59:59`).getTime();
+    const toTime = new Date(`${to}T23:59:59.999-03:00`).getTime();
     if (time > toTime) {
       return false;
     }
@@ -160,7 +163,7 @@ export default async function AuditPage({ params, searchParams }: AuditPageProps
         </div>
       </div>
 
-      <form className="shell-card grid gap-3 rounded-xl p-4 md:grid-cols-4">
+      <Form action={`/events/${eventId}/auditoria`} scroll={false} className="shell-card grid gap-3 rounded-xl p-4 md:grid-cols-4">
         <div>
           <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Filtrar por Ação</label>
           <select
@@ -198,9 +201,11 @@ export default async function AuditPage({ params, searchParams }: AuditPageProps
         </div>
 
         <div className="flex items-end gap-2">
-          <button className="gradient-primary w-full rounded-xl px-4 py-2.5 text-sm font-semibold text-white">Aplicar Filtros</button>
+          <SubmitButton pendingLabel="Aplicando..." className="gradient-primary w-full rounded-xl px-4 py-2.5 text-sm font-semibold text-white">
+            Aplicar Filtros
+          </SubmitButton>
         </div>
-      </form>
+      </Form>
 
       <div className="surface-card overflow-hidden rounded-xl">
         <div className="flex flex-wrap items-center justify-between gap-3 bg-[var(--surface-container-high)] px-4 py-3">
@@ -235,7 +240,7 @@ export default async function AuditPage({ params, searchParams }: AuditPageProps
                 <td className="px-4 py-3">
                   {log.actor_user_id ? userEmailMap.get(log.actor_user_id) ?? log.actor_user_id : "sistema"}
                 </td>
-                <td className="px-4 py-3 font-semibold text-[var(--foreground)]">{new Date(log.created_at).toLocaleString("pt-BR")}</td>
+                <td className="px-4 py-3 font-semibold text-[var(--foreground)]">{formatSaoPauloDateTime(log.created_at)}</td>
                 <td className="px-4 py-3">
                   <span className="rounded bg-[var(--surface-container-low)] px-2 py-1 text-xs font-semibold">{contextTag(log.context)}</span>
                 </td>

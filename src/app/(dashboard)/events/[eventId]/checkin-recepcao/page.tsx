@@ -1,5 +1,8 @@
+import Form from "next/form";
 import Link from "next/link";
 import { requireSession } from "@/lib/auth/session";
+import { SubmitButton } from "@/components/submit-button";
+import { formatDateOnly, formatSaoPauloTime, getSaoPauloDateKey } from "@/lib/date-time";
 import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerEntryCheckinAction } from "@/app/(dashboard)/events/[eventId]/checkin-recepcao/actions";
@@ -20,7 +23,7 @@ function getDefaultDayId(eventDays: { id: string; date: string }[]) {
   if (!eventDays.length) {
     return "";
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getSaoPauloDateKey();
   return eventDays.find((day) => day.date === today)?.id ?? eventDays[0].id;
 }
 
@@ -151,7 +154,11 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
             <p className="mt-1 text-sm text-muted">Digite o número do participante para um check-in mais rápido.</p>
           </div>
 
-          <form className="shell-card grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 rounded-xl p-3 md:flex">
+          <Form
+            action={`/events/${eventId}/checkin-recepcao`}
+            scroll={false}
+            className="shell-card grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 rounded-xl p-3 md:flex"
+          >
             <input type="hidden" name="q" value={queryText} />
             <div className="min-w-0">
               <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Evento Hoje</label>
@@ -162,15 +169,18 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
               >
                 {eventDays.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {new Date(item.date).toLocaleDateString("pt-BR")}
+                    {formatDateOnly(item.date)}
                   </option>
                 ))}
               </select>
             </div>
-            <button className="ghost-border min-h-11 rounded-lg bg-[var(--surface-container-lowest)] px-4 text-sm font-semibold text-[var(--foreground)]">
+            <SubmitButton
+              pendingLabel="Trocando..."
+              className="ghost-border min-h-11 rounded-lg bg-[var(--surface-container-lowest)] px-4 text-sm font-semibold text-[var(--foreground)]"
+            >
               Trocar
-            </button>
-          </form>
+            </SubmitButton>
+          </Form>
         </div>
 
         {notice ? (
@@ -183,7 +193,11 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
           </p>
         ) : null}
 
-        <form className="mt-6 grid gap-3 md:grid-cols-4">
+        <Form
+          action={`/events/${eventId}/checkin-recepcao`}
+          scroll={false}
+          className="mt-6 grid gap-3 md:grid-cols-4"
+        >
           <input type="hidden" name="day" value={selectedDayId} />
           <input
             name="q"
@@ -191,10 +205,13 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
             placeholder="Número do participante, nome, documento, telefone ou e-mail"
             className="input-surface h-14 rounded-2xl px-4 text-base font-medium outline-none focus:ring-4 focus:ring-[var(--primary)]/10 md:col-span-3 md:h-16 md:px-5 md:text-lg"
           />
-          <button className="gradient-primary h-14 rounded-2xl px-4 text-base font-semibold text-white md:h-16 md:text-sm">
+          <SubmitButton
+            pendingLabel="Buscando..."
+            className="gradient-primary h-14 rounded-2xl px-4 text-base font-semibold text-white md:h-16 md:text-sm"
+          >
             Buscar
-          </button>
-        </form>
+          </SubmitButton>
+        </Form>
 
         <BadgeScanner eventId={eventId} eventDayId={selectedDayId} initialQrValue={scan} />
       </div>
@@ -248,9 +265,12 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                     <input type="hidden" name="participant_id" value={primaryMatch.id} />
                     <input type="hidden" name="include_day" value={primaryMatch.registeredOnDay ? "false" : "true"} />
                     <input type="hidden" name="redirect_url" value={returnUrl} />
-                    <button className="gradient-primary min-h-12 w-full rounded-xl px-4 text-sm font-semibold text-white">
+                    <SubmitButton
+                      pendingLabel="Confirmando..."
+                      className="gradient-primary min-h-12 w-full rounded-xl px-4 text-sm font-semibold text-white"
+                    >
                       {primaryMatch.registeredOnDay ? "Confirmar Check-in" : "Fazer check-in mesmo assim"}
-                    </button>
+                    </SubmitButton>
                   </form>
                 ) : (
                   <p className="mt-4 text-xs font-semibold text-muted">Este participante ja realizou check-in no dia.</p>
@@ -301,9 +321,12 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                     <input type="hidden" name="participant_id" value={row.id} />
                     <input type="hidden" name="include_day" value={row.registeredOnDay ? "false" : "true"} />
                     <input type="hidden" name="redirect_url" value={returnUrl} />
-                    <button className="gradient-primary min-h-12 w-full rounded-xl px-4 text-sm font-semibold text-white">
+                    <SubmitButton
+                      pendingLabel="Confirmando..."
+                      className="gradient-primary min-h-12 w-full rounded-xl px-4 text-sm font-semibold text-white"
+                    >
                       {row.registeredOnDay ? "Confirmar Check-in" : "Fazer check-in mesmo assim"}
-                    </button>
+                    </SubmitButton>
                   </form>
                 ) : (
                   <p className="mt-4 rounded-xl bg-emerald-50 px-3 py-3 text-center text-sm font-semibold text-emerald-700">
@@ -365,9 +388,12 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                           <input type="hidden" name="participant_id" value={row.id} />
                           <input type="hidden" name="include_day" value={row.registeredOnDay ? "false" : "true"} />
                           <input type="hidden" name="redirect_url" value={returnUrl} />
-                          <button className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-white hover:brightness-105">
+                          <SubmitButton
+                            pendingLabel="Confirmando..."
+                            className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-white hover:brightness-105"
+                          >
                             {row.registeredOnDay ? "Confirmar Check-in" : "Fazer check-in mesmo assim"}
-                          </button>
+                          </SubmitButton>
                         </form>
                       ) : (
                         <span className="text-xs font-semibold text-muted">Sem acao</span>
@@ -415,7 +441,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                     </p>
                   </div>
                   <time className="shrink-0 text-sm font-bold text-[var(--foreground)]">
-                    {new Date(item.checked_in_at).toLocaleTimeString("pt-BR", {
+                    {formatSaoPauloTime(item.checked_in_at, {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
@@ -452,7 +478,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                     <td className="px-3 py-2">{participant?.full_name ?? "Participante"}</td>
                     <td className="px-3 py-2 font-mono font-bold text-[var(--primary)]">{participant?.participant_number ?? "-"}</td>
                     <td className="px-3 py-2">{participant ? `${participant.document_type} ${participant.document_number}` : "-"}</td>
-                    <td className="px-3 py-2">{new Date(item.checked_in_at).toLocaleTimeString("pt-BR")}</td>
+                    <td className="px-3 py-2">{formatSaoPauloTime(item.checked_in_at)}</td>
                     <td className="px-3 py-2">{item.origin}</td>
                   </tr>
                 );

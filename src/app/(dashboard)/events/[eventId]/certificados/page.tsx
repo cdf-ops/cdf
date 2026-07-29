@@ -1,5 +1,8 @@
+import Form from "next/form";
+import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
 import { createAssetSignedUrl } from "@/lib/certificates/assets";
+import { formatDateOnly, formatSaoPauloDateTime, getSaoPauloDateKey } from "@/lib/date-time";
 import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { issueCertificateAction } from "@/app/(dashboard)/events/[eventId]/certificados/actions";
@@ -19,7 +22,7 @@ function getDefaultDayId(eventDays: { id: string; date: string }[]) {
   if (!eventDays.length) {
     return "";
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getSaoPauloDateKey();
   return eventDays.find((day) => day.date === today)?.id ?? eventDays[0].id;
 }
 
@@ -133,8 +136,7 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
           </p>
         ) : null}
 
-        <form className="mt-4 grid gap-3 md:grid-cols-5">
-          <input type="hidden" name="day" value={selectedDayId} />
+        <Form action={`/events/${eventId}/certificados`} scroll={false} className="mt-4 grid gap-3 md:grid-cols-5">
           <input
             name="q"
             defaultValue={queryText}
@@ -148,12 +150,14 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
           >
             {eventDays.map((item) => (
               <option key={item.id} value={item.id}>
-                {new Date(item.date).toLocaleDateString("pt-BR")}
+                {formatDateOnly(item.date)}
               </option>
             ))}
           </select>
-          <button className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white">Aplicar</button>
-        </form>
+          <SubmitButton pendingLabel="Aplicando..." className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white">
+            Aplicar
+          </SubmitButton>
+        </Form>
       </div>
 
       <div className="surface-card overflow-hidden rounded-xl">
@@ -183,7 +187,7 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
                       {certificate ? (
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
-                            Emitido ({new Date(certificate.issued_at).toLocaleString("pt-BR")})
+                            Emitido ({formatSaoPauloDateTime(certificate.issued_at)})
                           </span>
                           {certificateUrls.get(certificate.id) ? (
                             <a
@@ -206,9 +210,9 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
                         <input type="hidden" name="event_day_id" value={selectedDayId} />
                         <input type="hidden" name="participant_id" value={participant.id} />
                         <input type="hidden" name="redirect_url" value={returnUrl} />
-                        <button className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-white">
+                        <SubmitButton pendingLabel="Emitindo..." className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-white">
                           {certificate ? "Reemitir" : "Emitir Certificado"}
-                        </button>
+                        </SubmitButton>
                       </form>
                     </td>
                   </tr>

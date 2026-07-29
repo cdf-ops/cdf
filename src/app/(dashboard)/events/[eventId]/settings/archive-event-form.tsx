@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { archiveEventAction } from "@/app/(dashboard)/events/actions";
+import { SubmitButton } from "@/components/submit-button";
 
 type ArchiveEventFormProps = {
   eventId: string;
@@ -28,13 +29,13 @@ export function ArchiveEventForm({ eventId, eventName }: ArchiveEventFormProps) 
           placeholder="Digite o nome exato do evento"
           required
         />
-        <button
-          type="submit"
+        <SubmitButton
+          pendingLabel="Arquivando..."
           disabled={confirmationName !== eventName}
           className="rounded-xl bg-amber-700 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           Arquivar evento
-        </button>
+        </SubmitButton>
       </div>
     </form>
   );

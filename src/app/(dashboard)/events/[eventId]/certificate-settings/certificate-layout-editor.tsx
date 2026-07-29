@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { SubmitButton } from "@/components/submit-button";
 import {
   CERTIFICATE_HEIGHT,
   CERTIFICATE_WIDTH,
@@ -263,9 +264,9 @@ export function CertificateLayoutEditor({
             </div>
           ) : null}
 
-          <button type="submit" className="mt-6 w-full rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white">
+          <SubmitButton pendingLabel="Salvando..." className="mt-6 w-full rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white">
             Salvar Configuração
-          </button>
+          </SubmitButton>
         </aside>
       </div>
     </form>

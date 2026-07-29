@@ -1,4 +1,7 @@
+import Form from "next/form";
+import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
+import { formatDateOnly, getSaoPauloDateKey } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type ReportsPageProps = {
@@ -10,7 +13,7 @@ function getDefaultDayId(eventDays: { id: string; date: string }[]) {
   if (!eventDays.length) {
     return "";
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getSaoPauloDateKey();
   return eventDays.find((day) => day.date === today)?.id ?? eventDays[0].id;
 }
 
@@ -116,7 +119,7 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
       <div className="surface-card rounded-xl p-5">
         <h2 className="font-headline text-2xl font-extrabold tracking-tight text-[var(--foreground)]">Relatórios de Evento</h2>
         <p className="mt-1 text-sm text-muted">Indicadores operacionais e de engajamento por dia.</p>
-        <form className="mt-4 flex items-end gap-2">
+        <Form action={`/events/${eventId}/relatorios`} scroll={false} className="mt-4 flex items-end gap-2">
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-[var(--outline)]">Dia para conversão</label>
             <select
@@ -126,15 +129,18 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
             >
               {eventDays.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {new Date(item.date).toLocaleDateString("pt-BR")}
+                  {formatDateOnly(item.date)}
                 </option>
               ))}
             </select>
           </div>
-          <button className="rounded-xl border border-[var(--outline-variant)]/65 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--foreground)]">
+          <SubmitButton
+            pendingLabel="Trocando..."
+            className="rounded-xl border border-[var(--outline-variant)]/65 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--foreground)]"
+          >
             Trocar dia
-          </button>
-        </form>
+          </SubmitButton>
+        </Form>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -170,7 +176,7 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
             <tbody className="divide-y divide-[var(--surface-container)]">
               {totalsByDay.map((row) => (
                 <tr key={row.dayId}>
-                  <td className="px-3 py-2">{new Date(row.date).toLocaleDateString("pt-BR")}</td>
+                  <td className="px-3 py-2">{formatDateOnly(row.date)}</td>
                   <td className="px-3 py-2">{row.entryCount}</td>
                   <td className="px-3 py-2">{row.entryUnique}</td>
                   <td className="px-3 py-2">{row.standCount}</td>
@@ -217,4 +223,3 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
     </section>
   );
 }
-

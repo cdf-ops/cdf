@@ -1,4 +1,6 @@
 import Link from "next/link";
+import Form from "next/form";
+import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCnpj, normalizeCnpj } from "@/lib/exhibitors/helpers";
@@ -85,14 +87,17 @@ export default async function ExhibitorsPage({ searchParams }: ExhibitorsPagePro
       <div className="surface-card rounded-xl p-5">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h2 className="font-headline text-xl font-bold text-[var(--foreground)]">Lista de Expositores</h2>
-          <form className="w-full max-w-sm">
+          <Form action="/expositores" scroll={false} className="flex w-full max-w-md gap-2">
             <input
               name="q"
               defaultValue={q}
               placeholder="Buscar por nome ou CNPJ"
               className="w-full rounded-xl border border-[var(--outline-variant)]/50 bg-white px-4 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
             />
-          </form>
+            <SubmitButton pendingLabel="Buscando..." className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white">
+              Buscar
+            </SubmitButton>
+          </Form>
         </div>
 
         <div className="overflow-x-auto">

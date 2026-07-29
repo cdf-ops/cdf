@@ -1,5 +1,6 @@
 import { logoutAction } from "@/app/(auth)/login/actions";
 import { DashboardNav } from "@/app/(dashboard)/dashboard-nav";
+import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
 
 export default async function DashboardLayout({
@@ -22,12 +23,12 @@ export default async function DashboardLayout({
               {session.role}
             </span>
             <form action={logoutAction}>
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Saindo..."
                 className="ghost-border min-h-11 rounded-xl bg-[var(--surface-container-lowest)] px-3 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-container-low)]"
               >
                 Sair
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </div>
