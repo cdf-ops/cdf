@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { restoreEventAction } from "@/app/(dashboard)/events/actions";
+import { EventMobileNav } from "@/app/(dashboard)/events/[eventId]/event-mobile-nav";
 import { requireSession } from "@/lib/auth/session";
 import type { AppRole } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
@@ -71,15 +72,16 @@ export default async function EventScopedLayout({ children, params }: EventScope
     { href: `/events/${eventId}/relatorios`, label: "Relatórios", roles: ["super_adm", "organizador"] },
     { href: `/events/${eventId}/auditoria`, label: "Auditoria", roles: ["super_adm"] },
   ];
+  const visibleNavItems = navItems
+    .filter((item) => item.roles.includes(session.role))
+    .map(({ href, label }) => ({ href, label }));
 
   return (
     <section className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
       <aside className="shell-card hidden h-fit rounded-2xl p-3 lg:sticky lg:top-24 lg:block">
         <p className="px-2 pb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Modulos</p>
         <nav className="space-y-1">
-          {navItems
-            .filter((item) => item.roles.includes(session.role))
-            .map((item) => (
+          {visibleNavItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -91,30 +93,20 @@ export default async function EventScopedLayout({ children, params }: EventScope
         </nav>
       </aside>
 
-      <div>
-        <div className="shell-card mb-6 rounded-2xl p-4 md:p-5">
+      <div className="min-w-0">
+        <div className="shell-card mb-4 rounded-2xl p-4 sm:mb-6 md:p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Evento em Contexto</p>
-              <h1 className="font-headline text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{event.name}</h1>
+              <h1 className="mt-1 font-headline text-xl font-extrabold leading-tight tracking-tight text-[var(--foreground)] sm:text-2xl">
+                {event.name}
+              </h1>
             </div>
             <span className="w-fit rounded-full bg-[var(--surface-container-lowest)] px-3 py-1 text-xs font-bold uppercase text-[var(--primary)]">
               {event.status}
             </span>
           </div>
-          <nav className="mt-4 flex flex-wrap gap-2 lg:hidden">
-            {navItems
-              .filter((item) => item.roles.includes(session.role))
-              .map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="ghost-border rounded-full bg-[var(--surface-container-lowest)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-container)]"
-                >
-                  {item.label}
-                </Link>
-              ))}
-          </nav>
+          <EventMobileNav items={visibleNavItems} />
         </div>
 
         {children}

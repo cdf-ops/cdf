@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type ScannerResult = {
@@ -16,6 +17,7 @@ type BadgeScannerProps = {
 };
 
 export function BadgeScanner({ eventId, eventDayId, initialQrValue }: BadgeScannerProps) {
+  const router = useRouter();
   const [manualValue, setManualValue] = useState("");
   const [result, setResult] = useState<ScannerResult | null>(null);
   const [cameraState, setCameraState] = useState<"idle" | "starting" | "active">("idle");
@@ -47,7 +49,10 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue }: BadgeScann
           participantNumber: data.participant?.participant_number,
           participantName: data.participant?.full_name,
         });
-        if (data.status === "checked_in" && "vibrate" in navigator) navigator.vibrate(120);
+        if (data.status === "checked_in") {
+          if ("vibrate" in navigator) navigator.vibrate(120);
+          router.refresh();
+        }
       }
       setManualValue("");
     } catch {
@@ -57,7 +62,7 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue }: BadgeScann
         processingRef.current = false;
       }, 700);
     }
-  }, [eventDayId, eventId]);
+  }, [eventDayId, eventId, router]);
 
   useEffect(() => {
     if (!initialQrValue || initialProcessedRef.current) return;
@@ -82,7 +87,13 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue }: BadgeScann
       scannerRef.current = scanner;
       await scanner.start(
         { facingMode: "environment" },
-        { fps: 12, qrbox: { width: 240, height: 240 } },
+        {
+          fps: 12,
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const size = Math.min(240, Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.75));
+            return { width: size, height: size };
+          },
+        },
         (decodedText) => void processQrValue(decodedText),
         () => undefined
       );
@@ -103,34 +114,53 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue }: BadgeScann
   return (
     <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
       <div className="rounded-2xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] p-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-headline text-lg font-bold text-[var(--foreground)]">Câmera do celular ou computador</h3>
             <p className="mt-1 text-xs text-muted">Aponte para o QR frontal da credencial.</p>
           </div>
           {cameraState === "active" ? (
-            <button type="button" onClick={() => void stopCamera()} className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold">Fechar câmera</button>
+            <button
+              type="button"
+              onClick={() => void stopCamera()}
+              className="min-h-11 rounded-xl border bg-white px-4 text-sm font-semibold sm:shrink-0"
+            >
+              Fechar câmera
+            </button>
           ) : (
-            <button type="button" disabled={cameraState === "starting"} onClick={() => void startCamera()} className="gradient-primary rounded-lg px-3 py-2 text-xs font-semibold text-white disabled:opacity-60">
+            <button
+              type="button"
+              disabled={cameraState === "starting"}
+              onClick={() => void startCamera()}
+              className="gradient-primary min-h-11 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-60 sm:shrink-0"
+            >
               {cameraState === "starting" ? "Abrindo..." : "Abrir câmera"}
             </button>
           )}
         </div>
-        <div id="badge-camera-reader" className={`mt-4 overflow-hidden rounded-xl bg-black ${cameraState === "idle" ? "hidden" : "min-h-64"}`} />
+        <div
+          id="badge-camera-reader"
+          className={`mt-4 overflow-hidden rounded-xl bg-black ${cameraState === "idle" ? "hidden" : "min-h-64"}`}
+        />
       </div>
 
       <div className="rounded-2xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] p-4">
         <h3 className="font-headline text-lg font-bold text-[var(--foreground)]">Leitor USB ou equipamento</h3>
         <p className="mt-1 text-xs text-muted">Clique no campo e faça a leitura. Equipamentos que funcionam como teclado são aceitos.</p>
         <form
-          className="mt-4 flex gap-2"
+          className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"
           onSubmit={(event) => {
             event.preventDefault();
             void processQrValue(manualValue);
           }}
         >
-          <input autoFocus value={manualValue} onChange={(event) => setManualValue(event.target.value)} className="min-w-0 flex-1 rounded-xl border bg-white px-4 py-3 font-mono text-sm" placeholder="Aguardando QR Code..." />
-          <button className="rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-white">Ler</button>
+          <input
+            value={manualValue}
+            onChange={(event) => setManualValue(event.target.value)}
+            className="min-h-12 min-w-0 rounded-xl border bg-white px-4 font-mono text-sm"
+            placeholder="Aguardando QR Code..."
+          />
+          <button className="min-h-12 rounded-xl bg-[var(--primary)] px-5 text-sm font-semibold text-white">Ler</button>
         </form>
 
         {result ? (

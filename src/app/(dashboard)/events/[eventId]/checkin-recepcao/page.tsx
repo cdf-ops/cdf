@@ -141,22 +141,24 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
 
   return (
     <section className="space-y-6">
-      <div className="surface-card rounded-2xl p-6">
+      <div className="surface-card rounded-2xl p-4 sm:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--primary)]">Terminal de Acesso</p>
-            <h2 className="font-headline text-4xl font-extrabold tracking-tight text-[var(--foreground)]">Check-in Digital</h2>
+            <h2 className="mt-1 font-headline text-3xl font-extrabold tracking-tight text-[var(--foreground)] sm:text-4xl">
+              Check-in Digital
+            </h2>
             <p className="mt-1 text-sm text-muted">Digite o número do participante para um check-in mais rápido.</p>
           </div>
 
-          <form className="shell-card flex items-end gap-2 rounded-xl p-3">
+          <form className="shell-card grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 rounded-xl p-3 md:flex">
             <input type="hidden" name="q" value={queryText} />
-            <div>
+            <div className="min-w-0">
               <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Evento Hoje</label>
               <select
                 name="day"
                 defaultValue={selectedDayId}
-                className="mt-1 block rounded-lg bg-[var(--surface-container-lowest)] px-3 py-2 text-sm font-semibold outline-none"
+                className="mt-1 block min-h-11 w-full rounded-lg bg-[var(--surface-container-lowest)] px-3 text-sm font-semibold outline-none"
               >
                 {eventDays.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -165,7 +167,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                 ))}
               </select>
             </div>
-            <button className="ghost-border rounded-lg bg-[var(--surface-container-lowest)] px-3 py-2 text-xs font-semibold text-[var(--foreground)]">
+            <button className="ghost-border min-h-11 rounded-lg bg-[var(--surface-container-lowest)] px-4 text-sm font-semibold text-[var(--foreground)]">
               Trocar
             </button>
           </form>
@@ -187,9 +189,11 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
             name="q"
             defaultValue={queryText}
             placeholder="Número do participante, nome, documento, telefone ou e-mail"
-            className="input-surface md:col-span-3 h-16 rounded-2xl px-5 text-lg font-medium outline-none focus:ring-4 focus:ring-[var(--primary)]/10"
+            className="input-surface h-14 rounded-2xl px-4 text-base font-medium outline-none focus:ring-4 focus:ring-[var(--primary)]/10 md:col-span-3 md:h-16 md:px-5 md:text-lg"
           />
-          <button className="gradient-primary h-16 rounded-2xl px-4 text-sm font-semibold text-white">Buscar</button>
+          <button className="gradient-primary h-14 rounded-2xl px-4 text-base font-semibold text-white md:h-16 md:text-sm">
+            Buscar
+          </button>
         </form>
 
         <BadgeScanner eventId={eventId} eventDayId={selectedDayId} initialQrValue={scan} />
@@ -201,10 +205,12 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
             <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
               <div className="surface-card rounded-2xl p-5">
                 <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--primary)]">Participante Encontrado</p>
-                <p className="mt-3 font-mono text-5xl font-black tracking-tight text-[var(--primary)]">
+                <p className="mt-3 font-mono text-4xl font-black tracking-tight text-[var(--primary)] sm:text-5xl">
                   {primaryMatch.participant_number}
                 </p>
-                <p className="mt-1 font-headline text-4xl font-extrabold tracking-tight text-[var(--foreground)]">{primaryMatch.full_name}</p>
+                <p className="mt-1 break-words font-headline text-2xl font-extrabold tracking-tight text-[var(--foreground)] sm:text-4xl">
+                  {primaryMatch.full_name}
+                </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Documento</p>
@@ -218,7 +224,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                   </div>
                   <div className="sm:col-span-2">
                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">E-mail</p>
-                    <p className="mt-1 text-sm text-muted">{primaryMatch.email}</p>
+                    <p className="mt-1 break-all text-sm text-muted">{primaryMatch.email}</p>
                   </div>
                 </div>
               </div>
@@ -242,7 +248,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                     <input type="hidden" name="participant_id" value={primaryMatch.id} />
                     <input type="hidden" name="include_day" value={primaryMatch.registeredOnDay ? "false" : "true"} />
                     <input type="hidden" name="redirect_url" value={returnUrl} />
-                    <button className="gradient-primary w-full rounded-xl px-4 py-3 text-sm font-semibold text-white">
+                    <button className="gradient-primary min-h-12 w-full rounded-xl px-4 text-sm font-semibold text-white">
                       {primaryMatch.registeredOnDay ? "Confirmar Check-in" : "Fazer check-in mesmo assim"}
                     </button>
                   </form>
@@ -253,7 +259,74 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
             </div>
           ) : null}
 
-          <div className="surface-card overflow-hidden rounded-xl">
+          <div className="grid gap-3 md:hidden">
+            {searchRows.map((row) => (
+              <article key={row.id} className="surface-card rounded-2xl p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="break-words font-headline text-lg font-bold text-[var(--foreground)]">{row.full_name}</p>
+                    <p className="mt-1 font-mono text-3xl font-black text-[var(--primary)]">{row.participant_number}</p>
+                  </div>
+                  {row.checkedInOnDay ? (
+                    <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
+                      Realizado
+                    </span>
+                  ) : row.registeredOnDay ? (
+                    <span className="shrink-0 rounded-full bg-blue-100 px-2 py-1 text-xs font-bold text-blue-700">
+                      Inscrito
+                    </span>
+                  ) : (
+                    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">
+                      Outro dia
+                    </span>
+                  )}
+                </div>
+                <dl className="mt-3 grid gap-2 text-sm">
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--outline)]">Documento</dt>
+                    <dd className="mt-1 text-[var(--foreground)]">
+                      {row.document_type} {row.document_number}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--outline)]">Contato</dt>
+                    <dd className="mt-1 break-all text-muted">{row.email}</dd>
+                    <dd className="mt-0.5 text-muted">{row.phone}</dd>
+                  </div>
+                </dl>
+                {!row.checkedInOnDay ? (
+                  <form action={registerEntryCheckinAction} className="mt-4">
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="event_day_id" value={selectedDayId} />
+                    <input type="hidden" name="participant_id" value={row.id} />
+                    <input type="hidden" name="include_day" value={row.registeredOnDay ? "false" : "true"} />
+                    <input type="hidden" name="redirect_url" value={returnUrl} />
+                    <button className="gradient-primary min-h-12 w-full rounded-xl px-4 text-sm font-semibold text-white">
+                      {row.registeredOnDay ? "Confirmar Check-in" : "Fazer check-in mesmo assim"}
+                    </button>
+                  </form>
+                ) : (
+                  <p className="mt-4 rounded-xl bg-emerald-50 px-3 py-3 text-center text-sm font-semibold text-emerald-700">
+                    Check-in já realizado
+                  </p>
+                )}
+              </article>
+            ))}
+            {!searchRows.length ? (
+              <div className="surface-card rounded-2xl px-5 py-8 text-center text-sm text-muted">
+                Nenhum participante encontrado para essa busca.
+              </div>
+            ) : null}
+            <p className="px-1 text-xs text-muted">
+              Nao encontrou o visitante? Cadastre em{" "}
+              <Link href={`/events/${eventId}/participants`} className="font-semibold text-[var(--primary)]">
+                Participantes
+              </Link>
+              .
+            </p>
+          </div>
+
+          <div className="surface-card hidden overflow-hidden rounded-xl md:block">
             <table className="w-full border-collapse text-left text-sm">
               <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
                 <tr>
@@ -322,12 +395,45 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
         </div>
       ) : null}
 
-      <div className="surface-card rounded-xl p-5">
+      <div className="surface-card rounded-xl p-4 sm:p-5">
         <div className="flex items-center justify-between gap-3">
           <h3 className="font-headline text-lg font-bold text-[var(--foreground)]">Ultimos Check-ins</h3>
           <span className="text-xs font-semibold uppercase tracking-wide text-[var(--outline)]">Tempo real</span>
         </div>
-        <div className="mt-3 overflow-x-auto">
+        <div className="mt-3 grid gap-2 md:hidden">
+          {latestCheckins.map((item) => {
+            const participant = latestParticipantMap.get(item.participant_id);
+            return (
+              <article key={item.id} className="rounded-xl bg-[var(--surface-container-low)] p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-bold text-[var(--foreground)]">
+                      {participant?.full_name ?? "Participante"}
+                    </p>
+                    <p className="mt-1 font-mono text-xl font-black text-[var(--primary)]">
+                      {participant?.participant_number ?? "-"}
+                    </p>
+                  </div>
+                  <time className="shrink-0 text-sm font-bold text-[var(--foreground)]">
+                    {new Date(item.checked_in_at).toLocaleTimeString("pt-BR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </time>
+                </div>
+                <p className="mt-2 text-xs text-muted">
+                  {participant ? `${participant.document_type} ${participant.document_number}` : "Documento não informado"}
+                </p>
+              </article>
+            );
+          })}
+          {!latestCheckins.length ? (
+            <p className="rounded-xl bg-[var(--surface-container-low)] px-3 py-5 text-center text-sm text-muted">
+              Ainda nao ha check-ins nesse dia.
+            </p>
+          ) : null}
+        </div>
+        <div className="mt-3 hidden overflow-x-auto md:block">
           <table className="w-full border-collapse text-left text-sm">
             <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
               <tr>
