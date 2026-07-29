@@ -48,7 +48,7 @@ export async function loadExhibitorCredentialPdfData(
   }
 
   const { data: settings } = await admin
-    .from("event_badge_settings")
+    .from("event_exhibitor_badge_settings")
     .select("*")
     .eq("event_id", event.id)
     .maybeSingle();

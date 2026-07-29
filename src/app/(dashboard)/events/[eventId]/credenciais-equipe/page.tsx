@@ -2,8 +2,10 @@ import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
 import { getAccessibleExhibitorCompanyIds } from "@/lib/exhibitors/access";
+import { resolveExhibitorBadgeSettings } from "@/lib/exhibitor-credentials/settings";
 import { formatSaoPauloDateTime } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { saveExhibitorBadgeSettingsAction } from "@/app/(dashboard)/events/[eventId]/credenciais-equipe/actions";
 
 type ExhibitorCredentialsPageProps = {
   params: Promise<{ eventId: string }>;
@@ -16,6 +18,7 @@ export default async function ExhibitorCredentialsPage({ params, searchParams }:
   const query = await searchParams;
   const admin = createAdminClient();
   const accessibleCompanyIds = await getAccessibleExhibitorCompanyIds(session);
+  const canCustomize = session.role === "super_adm" || session.role === "organizador";
 
   const { data: eventExhibitorsData } = accessibleCompanyIds.length
     ? await admin
@@ -38,7 +41,13 @@ export default async function ExhibitorCredentialsPage({ params, searchParams }:
   }
 
   const companyIds = eventExhibitors.map((link) => link.exhibitor_company_id);
-  const [{ data: companiesData }, { data: membersData }, { data: credentialsData }] = await Promise.all([
+  const [
+    { data: companiesData },
+    { data: membersData },
+    { data: credentialsData },
+    { data: storedSettings },
+    { data: event },
+  ] = await Promise.all([
     admin.from("exhibitor_companies").select("id, name, trade_name, logo_path").in("id", companyIds),
     admin
       .from("exhibitor_team_members")
@@ -50,6 +59,8 @@ export default async function ExhibitorCredentialsPage({ params, searchParams }:
       .from("exhibitor_credentials")
       .select("id, team_member_id, status, last_printed_at, print_count")
       .eq("event_exhibitor_id", selectedLink.id),
+    admin.from("event_exhibitor_badge_settings").select("*").eq("event_id", eventId).maybeSingle(),
+    admin.from("events").select("location").eq("id", eventId).maybeSingle(),
   ]);
   const companies = companiesData ?? [];
   const selectedCompany = companies.find((company) => company.id === selectedLink.exhibitor_company_id);
@@ -57,6 +68,7 @@ export default async function ExhibitorCredentialsPage({ params, searchParams }:
   const members = membersData ?? [];
   const credentialByMember = new Map((credentialsData ?? []).map((credential) => [credential.team_member_id, credential]));
   const activeMembers = members.filter((member) => member.status === "active");
+  const settings = resolveExhibitorBadgeSettings(storedSettings);
 
   return (
     <section className="space-y-6">
@@ -85,6 +97,197 @@ export default async function ExhibitorCredentialsPage({ params, searchParams }:
           </div>
         ) : null}
       </div>
+
+      {canCustomize ? (
+        <details className="surface-card rounded-2xl p-5">
+          <summary className="cursor-pointer font-headline text-xl font-extrabold tracking-tight text-[var(--foreground)]">
+            Personalizar credencial da equipe
+          </summary>
+          <p className="mt-2 text-sm text-muted">
+            Este modelo é exclusivo da equipe expositora e não altera a credencial dos participantes.
+          </p>
+          <form action={saveExhibitorBadgeSettingsAction} className="mt-5 grid gap-4 md:grid-cols-2">
+            <input type="hidden" name="event_id" value={eventId} />
+
+            <label className="text-sm font-semibold text-[var(--foreground)]">
+              Identificação da frente
+              <input
+                name="front_label"
+                defaultValue={settings.front_label}
+                className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal"
+                placeholder="EXPOSITOR"
+              />
+            </label>
+            <label className="text-sm font-semibold text-[var(--foreground)]">
+              Cidade em destaque
+              <input
+                name="city_label"
+                defaultValue={settings.city_label ?? event?.location ?? ""}
+                className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal"
+              />
+            </label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-sm font-semibold text-[var(--foreground)]">
+                Cor principal
+                <input
+                  name="primary_color"
+                  type="color"
+                  defaultValue={settings.primary_color}
+                  className="mt-1.5 h-12 w-full rounded-xl border bg-white p-1"
+                />
+              </label>
+              <label className="text-sm font-semibold text-[var(--foreground)]">
+                Cor de fundo
+                <input
+                  name="secondary_color"
+                  type="color"
+                  defaultValue={settings.secondary_color}
+                  className="mt-1.5 h-12 w-full rounded-xl border bg-white p-1"
+                />
+              </label>
+            </div>
+            <label className="text-sm font-semibold text-[var(--foreground)]">
+              Destaque do logo da empresa
+              <select
+                name="company_logo_size"
+                defaultValue={settings.company_logo_size}
+                className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal"
+              >
+                <option value="small">Pequeno</option>
+                <option value="medium">Médio</option>
+                <option value="large">Grande</option>
+              </select>
+            </label>
+
+            <label className="text-sm font-semibold text-[var(--foreground)]">
+              Título da área institucional
+              <input
+                name="company_heading"
+                defaultValue={settings.company_heading}
+                className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal"
+              />
+            </label>
+            <label className="text-sm font-semibold text-[var(--foreground)]">
+              Título da programação
+              <input
+                name="schedule_heading"
+                defaultValue={settings.schedule_heading}
+                className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal"
+              />
+            </label>
+            <label className="text-sm font-semibold text-[var(--foreground)] md:col-span-2">
+              Texto institucional
+              <textarea
+                name="institutional_text"
+                rows={4}
+                defaultValue={settings.institutional_text ?? ""}
+                className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal"
+              />
+            </label>
+            <label className="text-sm font-semibold text-[var(--foreground)] md:col-span-2">
+              Programação resumida
+              <textarea
+                name="schedule_text"
+                rows={5}
+                defaultValue={settings.schedule_text ?? ""}
+                className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal"
+                placeholder="19, 20 e 21 de agosto - 18h às 22h30"
+              />
+            </label>
+
+            <label className="text-sm font-semibold text-[var(--foreground)] md:col-span-2">
+              Chamada das redes sociais
+              <input
+                name="social_heading"
+                defaultValue={settings.social_heading}
+                className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal"
+              />
+            </label>
+            <label className="text-sm font-semibold text-[var(--foreground)] md:col-span-2">
+              Link do QR institucional
+              <input
+                name="social_url"
+                type="url"
+                defaultValue={settings.social_url ?? ""}
+                className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-mono font-normal"
+              />
+            </label>
+            <label className="text-sm font-semibold text-[var(--foreground)]">
+              Facebook
+              <input
+                name="facebook_label"
+                defaultValue={settings.facebook_label ?? ""}
+                className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal"
+              />
+            </label>
+            <label className="text-sm font-semibold text-[var(--foreground)]">
+              Instagram
+              <input
+                name="instagram_label"
+                defaultValue={settings.instagram_label ?? ""}
+                className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal"
+              />
+            </label>
+            <label className="text-sm font-semibold text-[var(--foreground)]">
+              YouTube
+              <input
+                name="youtube_label"
+                defaultValue={settings.youtube_label ?? ""}
+                className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal"
+              />
+            </label>
+
+            <div className="grid gap-3 rounded-xl border bg-slate-50 p-4 md:col-span-2 sm:grid-cols-3">
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                <input
+                  name="show_job_title"
+                  type="checkbox"
+                  defaultChecked={settings.show_job_title}
+                  className="h-5 w-5 accent-[var(--primary)]"
+                />
+                Mostrar cargo
+              </label>
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                <input
+                  name="show_event_logo"
+                  type="checkbox"
+                  defaultChecked={settings.show_event_logo}
+                  className="h-5 w-5 accent-[var(--primary)]"
+                />
+                Mostrar logo do evento
+              </label>
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                <input
+                  name="show_social_qr"
+                  type="checkbox"
+                  defaultChecked={settings.show_social_qr}
+                  className="h-5 w-5 accent-[var(--primary)]"
+                />
+                Mostrar QR institucional
+              </label>
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 md:col-span-2 sm:flex-row sm:justify-end">
+              {activeMembers.length ? (
+                <Link
+                  href={`/api/events/${eventId}/exhibitor-credentials/preview?empresa=${selectedLink.exhibitor_company_id}`}
+                  target="_blank"
+                  className="rounded-xl border bg-white px-5 py-2.5 text-center text-sm font-semibold"
+                >
+                  Abrir prévia salva
+                </Link>
+              ) : null}
+              <SubmitButton
+                pendingLabel="Salvando..."
+                className="gradient-primary rounded-xl px-5 py-2.5 text-sm font-semibold text-white"
+              >
+                Salvar modelo da equipe
+              </SubmitButton>
+            </div>
+          </form>
+        </details>
+      ) : null}
 
       {!selectedCompany?.logo_path ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">

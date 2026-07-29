@@ -150,6 +150,78 @@ export type Database = {
         };
         Relationships: [];
       };
+      event_exhibitor_badge_settings: {
+        Row: {
+          event_id: string;
+          city_label: string | null;
+          primary_color: string;
+          secondary_color: string;
+          front_label: string;
+          social_heading: string;
+          company_heading: string;
+          institutional_text: string | null;
+          schedule_heading: string;
+          schedule_text: string | null;
+          social_url: string | null;
+          facebook_label: string | null;
+          instagram_label: string | null;
+          youtube_label: string | null;
+          show_job_title: boolean;
+          show_event_logo: boolean;
+          show_social_qr: boolean;
+          company_logo_size: "small" | "medium" | "large";
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          event_id: string;
+          city_label?: string | null;
+          primary_color?: string;
+          secondary_color?: string;
+          front_label?: string;
+          social_heading?: string;
+          company_heading?: string;
+          institutional_text?: string | null;
+          schedule_heading?: string;
+          schedule_text?: string | null;
+          social_url?: string | null;
+          facebook_label?: string | null;
+          instagram_label?: string | null;
+          youtube_label?: string | null;
+          show_job_title?: boolean;
+          show_event_logo?: boolean;
+          show_social_qr?: boolean;
+          company_logo_size?: "small" | "medium" | "large";
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          event_id?: string;
+          city_label?: string | null;
+          primary_color?: string;
+          secondary_color?: string;
+          front_label?: string;
+          social_heading?: string;
+          company_heading?: string;
+          institutional_text?: string | null;
+          schedule_heading?: string;
+          schedule_text?: string | null;
+          social_url?: string | null;
+          facebook_label?: string | null;
+          instagram_label?: string | null;
+          youtube_label?: string | null;
+          show_job_title?: boolean;
+          show_event_logo?: boolean;
+          show_social_qr?: boolean;
+          company_logo_size?: "small" | "medium" | "large";
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       event_days: {
         Row: {
           id: string;
