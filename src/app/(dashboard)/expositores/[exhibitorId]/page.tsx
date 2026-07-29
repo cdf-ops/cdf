@@ -3,10 +3,16 @@ import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ExhibitorDetailForms } from "@/app/(dashboard)/expositores/[exhibitorId]/detail-forms";
+import { TeamManagementSection } from "@/app/(dashboard)/equipe/team-management-section";
+import { createAssetSignedUrl } from "@/lib/certificates/assets";
 import { formatCnpj } from "@/lib/exhibitors/helpers";
 
 type ExhibitorDetailPageProps = {
   params: Promise<{ exhibitorId: string }>;
+  searchParams: Promise<{
+    notice?: string;
+    notice_type?: "success" | "error";
+  }>;
 };
 
 async function getUserEmailMap(userIds: string[]) {
@@ -37,14 +43,15 @@ async function getUserEmailMap(userIds: string[]) {
   return emailMap;
 }
 
-export default async function ExhibitorDetailPage({ params }: ExhibitorDetailPageProps) {
+export default async function ExhibitorDetailPage({ params, searchParams }: ExhibitorDetailPageProps) {
   await requireSession(["super_adm", "organizador"]);
   const { exhibitorId } = await params;
+  const query = await searchParams;
   const admin = createAdminClient();
 
   const { data: exhibitor } = await admin
     .from("exhibitor_companies")
-    .select("id, name, trade_name, legal_name, cnpj, phone, email, contact_name, notes")
+    .select("id, name, trade_name, legal_name, cnpj, phone, email, contact_name, notes, logo_path")
     .eq("id", exhibitorId)
     .maybeSingle();
 
@@ -64,6 +71,17 @@ export default async function ExhibitorDetailPage({ params }: ExhibitorDetailPag
       email: userEmailMap.get(userId) ?? userId,
     }))
     .sort((a, b) => a.email.localeCompare(b.email, "pt-BR"));
+
+  const [{ data: teamMembersData }, logoUrl] = await Promise.all([
+    admin
+      .from("exhibitor_team_members")
+      .select("id, full_name, job_title, linked_user_id, status")
+      .eq("exhibitor_company_id", exhibitor.id)
+      .order("status", { ascending: true })
+      .order("full_name", { ascending: true }),
+    createAssetSignedUrl(admin, exhibitor.logo_path),
+  ]);
+  const teamMembers = teamMembersData ?? [];
 
   const { data: eventLinks } = await admin
     .from("event_exhibitors")
@@ -109,7 +127,7 @@ export default async function ExhibitorDetailPage({ params }: ExhibitorDetailPag
         <p className="mt-1 text-sm text-muted">
           {exhibitor.legal_name ?? "-"} • CNPJ {formatCnpj(exhibitor.cnpj)}
         </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <div className="mt-3 grid gap-3 sm:grid-cols-4">
           <div className="rounded-lg border border-[var(--outline-variant)]/40 bg-white p-3">
             <p className="text-xs text-muted">Usuários vinculados</p>
             <p className="font-headline text-2xl font-bold">{users.length}</p>
@@ -119,11 +137,38 @@ export default async function ExhibitorDetailPage({ params }: ExhibitorDetailPag
             <p className="font-headline text-2xl font-bold">{linkedEvents.length}</p>
           </div>
           <div className="rounded-lg border border-[var(--outline-variant)]/40 bg-white p-3">
+            <p className="text-xs text-muted">Equipe ativa</p>
+            <p className="font-headline text-2xl font-bold">
+              {teamMembers.filter((member) => member.status === "active").length}
+            </p>
+          </div>
+          <div className="rounded-lg border border-[var(--outline-variant)]/40 bg-white p-3">
             <p className="text-xs text-muted">Eventos disponíveis</p>
             <p className="font-headline text-2xl font-bold">{allEvents.length - linkedEventIds.length}</p>
           </div>
         </div>
       </div>
+
+      <TeamManagementSection
+        company={{
+          id: exhibitor.id,
+          name: exhibitor.trade_name ?? exhibitor.name,
+          hasLogo: Boolean(exhibitor.logo_path),
+        }}
+        logoUrl={logoUrl}
+        members={teamMembers.map((member) => ({
+          id: member.id,
+          fullName: member.full_name,
+          jobTitle: member.job_title,
+          linkedUserId: member.linked_user_id,
+          status: member.status,
+        }))}
+        users={users}
+        returnTo={`/expositores/${exhibitor.id}#equipe-geral`}
+        notice={query.notice}
+        noticeType={query.notice_type}
+        showEventsLink={false}
+      />
 
       <ExhibitorDetailForms
         exhibitor={{

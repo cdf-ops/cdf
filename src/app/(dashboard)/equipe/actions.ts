@@ -29,8 +29,17 @@ const logoSchema = z.object({
   companyId: z.string().uuid(),
 });
 
-function withNotice(companyId: string, type: "success" | "error", message: string) {
-  return `/equipe?empresa=${companyId}&notice_type=${type}&notice=${encodeURIComponent(message)}`;
+function getReturnTo(formData: FormData, companyId: string) {
+  const requested = String(formData.get("return_to") ?? "");
+  const exhibitorDetailPath = `/expositores/${companyId}#equipe-geral`;
+  return requested === exhibitorDetailPath ? exhibitorDetailPath : `/equipe?empresa=${companyId}`;
+}
+
+function withNotice(returnTo: string, type: "success" | "error", message: string) {
+  const [path, hash] = returnTo.split("#", 2);
+  const separator = path.includes("?") ? "&" : "?";
+  const url = `${path}${separator}notice_type=${type}&notice=${encodeURIComponent(message)}`;
+  return hash ? `${url}#${hash}` : url;
 }
 
 async function requireCompanyAccess(companyId: string) {
@@ -54,9 +63,10 @@ export async function createTeamMemberAction(formData: FormData) {
   const parsed = parseMember(formData);
   if (!parsed.success) {
     const companyId = String(formData.get("company_id") ?? "");
-    redirect(withNotice(companyId, "error", parsed.error.issues[0]?.message ?? "Dados inválidos."));
+    redirect(withNotice(getReturnTo(formData, companyId), "error", parsed.error.issues[0]?.message ?? "Dados inválidos."));
   }
 
+  const returnTo = getReturnTo(formData, parsed.data.companyId);
   const session = await requireCompanyAccess(parsed.data.companyId);
   const admin = createAdminClient();
 
@@ -68,7 +78,7 @@ export async function createTeamMemberAction(formData: FormData) {
       .eq("exhibitor_company_id", parsed.data.companyId)
       .maybeSingle();
     if (!linkedUser) {
-      redirect(withNotice(parsed.data.companyId, "error", "O usuário selecionado não pertence a esta empresa."));
+      redirect(withNotice(returnTo, "error", "O usuário selecionado não pertence a esta empresa."));
     }
   }
 
@@ -88,7 +98,7 @@ export async function createTeamMemberAction(formData: FormData) {
     const message = error?.code === "23505"
       ? "Este usuário já está associado a uma pessoa da Equipe Geral."
       : "Não foi possível cadastrar a pessoa.";
-    redirect(withNotice(parsed.data.companyId, "error", message));
+    redirect(withNotice(returnTo, "error", message));
   }
 
   await admin.from("audit_logs").insert({
@@ -102,7 +112,8 @@ export async function createTeamMemberAction(formData: FormData) {
   });
 
   revalidatePath("/equipe");
-  redirect(withNotice(parsed.data.companyId, "success", "Pessoa adicionada à Equipe Geral."));
+  revalidatePath(`/expositores/${parsed.data.companyId}`);
+  redirect(withNotice(returnTo, "success", "Pessoa adicionada à Equipe Geral."));
 }
 
 export async function updateTeamMemberAction(formData: FormData) {
@@ -117,9 +128,10 @@ export async function updateTeamMemberAction(formData: FormData) {
   });
   if (!parsed.success) {
     const companyId = String(formData.get("company_id") ?? "");
-    redirect(withNotice(companyId, "error", parsed.error.issues[0]?.message ?? "Dados inválidos."));
+    redirect(withNotice(getReturnTo(formData, companyId), "error", parsed.error.issues[0]?.message ?? "Dados inválidos."));
   }
 
+  const returnTo = getReturnTo(formData, parsed.data.companyId);
   const session = await requireCompanyAccess(parsed.data.companyId);
   const admin = createAdminClient();
   const { data: member } = await admin
@@ -129,7 +141,7 @@ export async function updateTeamMemberAction(formData: FormData) {
     .eq("exhibitor_company_id", parsed.data.companyId)
     .maybeSingle();
   if (!member) {
-    redirect(withNotice(parsed.data.companyId, "error", "Pessoa não encontrada nesta empresa."));
+    redirect(withNotice(returnTo, "error", "Pessoa não encontrada nesta empresa."));
   }
 
   if (parsed.data.linkedUserId) {
@@ -140,7 +152,7 @@ export async function updateTeamMemberAction(formData: FormData) {
       .eq("exhibitor_company_id", parsed.data.companyId)
       .maybeSingle();
     if (!linkedUser) {
-      redirect(withNotice(parsed.data.companyId, "error", "O usuário selecionado não pertence a esta empresa."));
+      redirect(withNotice(returnTo, "error", "O usuário selecionado não pertence a esta empresa."));
     }
   }
 
@@ -153,7 +165,7 @@ export async function updateTeamMemberAction(formData: FormData) {
     })
     .eq("id", member.id);
   if (error) {
-    redirect(withNotice(parsed.data.companyId, "error", "Não foi possível atualizar a pessoa."));
+    redirect(withNotice(returnTo, "error", "Não foi possível atualizar a pessoa."));
   }
 
   await admin.from("audit_logs").insert({
@@ -163,7 +175,8 @@ export async function updateTeamMemberAction(formData: FormData) {
   });
 
   revalidatePath("/equipe");
-  redirect(withNotice(parsed.data.companyId, "success", "Dados da pessoa atualizados."));
+  revalidatePath(`/expositores/${parsed.data.companyId}`);
+  redirect(withNotice(returnTo, "success", "Dados da pessoa atualizados."));
 }
 
 export async function updateTeamMemberStatusAction(formData: FormData) {
@@ -173,9 +186,11 @@ export async function updateTeamMemberStatusAction(formData: FormData) {
     status: formData.get("status"),
   });
   if (!parsed.success) {
-    redirect("/equipe?notice_type=error&notice=Dados%20inv%C3%A1lidos.");
+    const companyId = String(formData.get("company_id") ?? "");
+    redirect(withNotice(getReturnTo(formData, companyId), "error", "Dados inválidos."));
   }
 
+  const returnTo = getReturnTo(formData, parsed.data.companyId);
   const session = await requireCompanyAccess(parsed.data.companyId);
   const admin = createAdminClient();
   const { data: member } = await admin
@@ -185,12 +200,12 @@ export async function updateTeamMemberStatusAction(formData: FormData) {
     .eq("exhibitor_company_id", parsed.data.companyId)
     .maybeSingle();
   if (!member) {
-    redirect(withNotice(parsed.data.companyId, "error", "Pessoa não encontrada nesta empresa."));
+    redirect(withNotice(returnTo, "error", "Pessoa não encontrada nesta empresa."));
   }
 
   const { error } = await admin.from("exhibitor_team_members").update({ status: parsed.data.status }).eq("id", member.id);
   if (error) {
-    redirect(withNotice(parsed.data.companyId, "error", "Não foi possível alterar a situação."));
+    redirect(withNotice(returnTo, "error", "Não foi possível alterar a situação."));
   }
 
   if (parsed.data.status === "inactive") {
@@ -204,9 +219,10 @@ export async function updateTeamMemberStatusAction(formData: FormData) {
   });
 
   revalidatePath("/equipe");
+  revalidatePath(`/expositores/${parsed.data.companyId}`);
   redirect(
     withNotice(
-      parsed.data.companyId,
+      returnTo,
       "success",
       parsed.data.status === "active" ? "Pessoa reativada." : "Pessoa desativada e credenciais futuras canceladas."
     )
@@ -216,13 +232,15 @@ export async function updateTeamMemberStatusAction(formData: FormData) {
 export async function uploadCompanyLogoAction(formData: FormData) {
   const parsed = logoSchema.safeParse({ companyId: formData.get("company_id") });
   if (!parsed.success) {
-    redirect("/equipe?notice_type=error&notice=Empresa%20inv%C3%A1lida.");
+    const companyId = String(formData.get("company_id") ?? "");
+    redirect(withNotice(getReturnTo(formData, companyId), "error", "Empresa inválida."));
   }
 
+  const returnTo = getReturnTo(formData, parsed.data.companyId);
   const session = await requireCompanyAccess(parsed.data.companyId);
   const file = formData.get("company_logo");
   if (!(file instanceof File) || file.size === 0) {
-    redirect(withNotice(parsed.data.companyId, "error", "Selecione uma imagem para o logo."));
+    redirect(withNotice(returnTo, "error", "Selecione uma imagem para o logo."));
   }
 
   const admin = createAdminClient();
@@ -240,9 +258,10 @@ export async function uploadCompanyLogoAction(formData: FormData) {
       context: { exhibitor_company_id: parsed.data.companyId, logo_path: logoPath },
     });
   } catch (error) {
-    redirect(withNotice(parsed.data.companyId, "error", error instanceof Error ? error.message : "Falha ao salvar o logo."));
+    redirect(withNotice(returnTo, "error", error instanceof Error ? error.message : "Falha ao salvar o logo."));
   }
 
   revalidatePath("/equipe");
-  redirect(withNotice(parsed.data.companyId, "success", "Logo da empresa atualizado."));
+  revalidatePath(`/expositores/${parsed.data.companyId}`);
+  redirect(withNotice(returnTo, "success", "Logo da empresa atualizado."));
 }
