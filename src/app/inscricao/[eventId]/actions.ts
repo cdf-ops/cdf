@@ -6,6 +6,8 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerParticipantInEventDays } from "@/lib/domain/registrations";
 import { ensureParticipantBadge, getApplicationBaseUrl, getCredentialDownloadPath } from "@/lib/badges/tokens";
+import { isValidBrazilianPhone } from "@/lib/domain/contacts";
+import { validateDocumentNumber } from "@/lib/domain/documents";
 import { dispatchConfiguredWebhook } from "@/lib/webhooks/dispatch";
 
 const allowedDocumentTypes = ["CPF", "RNE", "OUTRO"];
@@ -20,8 +22,8 @@ const registrationSchema = z.object({
     .refine((value) => allowedDocumentTypes.includes(value), "Tipo de documento inválido."),
   documentNumber: z.string().trim().min(3, "Documento é obrigatório."),
   email: z.string().email("E-mail inválido."),
-  phone: z.string().trim().min(8, "Telefone é obrigatório."),
-  state: z.string().trim().min(2, "Estado é obrigatório."),
+  phone: z.string().trim().refine(isValidBrazilianPhone, "Telefone inválido. Informe DDD e número."),
+  state: z.string().trim().regex(/^[A-Za-z]{2}$/, "Informe a sigla do estado com 2 letras."),
   city: z.string().trim().min(2, "Cidade é obrigatória."),
   profession: z.string().trim().min(2, "Profissão é obrigatória."),
   selectedDays: z.array(z.string().uuid()).min(1, "Selecione ao menos um dia."),
@@ -55,6 +57,10 @@ export async function submitPublicRegistration(
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos.", success: null, credentialUrl: null };
+  }
+
+  if (!validateDocumentNumber(parsed.data.documentType, parsed.data.documentNumber)) {
+    return { error: "CPF inválido. Revise o número informado.", success: null, credentialUrl: null };
   }
 
   if (parsed.data.website) {
