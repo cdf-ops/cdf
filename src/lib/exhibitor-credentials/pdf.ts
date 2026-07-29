@@ -4,7 +4,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { EVENT_ASSETS_BUCKET } from "@/lib/certificates/assets";
 import { getApplicationBaseUrl } from "@/lib/badges/tokens";
-import { resolveBadgeSettings, type BadgeSettings } from "@/lib/badges/settings";
+import {
+  resolveExhibitorBadgeSettings,
+  type ExhibitorBadgeSettings,
+} from "@/lib/exhibitor-credentials/settings";
 
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;
@@ -30,7 +33,7 @@ type ExhibitorCredentialPdfInput = {
     fullName: string;
     jobTitle: string | null;
   }[];
-  settings?: Partial<BadgeSettings> | null;
+  settings?: Partial<ExhibitorBadgeSettings> | null;
 };
 
 function safeText(value: string) {
@@ -154,16 +157,19 @@ export async function generateExhibitorCredentialPdf(
     embedImage(pdf, await downloadImage(admin, input.event.eventLogoPath)),
     embedImage(pdf, await downloadImage(admin, input.company.logoPath)),
   ]);
-  const settings = resolveBadgeSettings(input.settings);
+  const settings = resolveExhibitorBadgeSettings(input.settings);
   const primary = colorFromHex(settings.primary_color);
   const secondary = colorFromHex(settings.secondary_color);
-  const socialQrBytes = await QRCode.toBuffer(settings.social_url || getApplicationBaseUrl(), {
-    type: "png",
-    errorCorrectionLevel: "M",
-    margin: 2,
-    width: 360,
-  });
-  const socialQr = await pdf.embedPng(socialQrBytes);
+  const socialQr = settings.show_social_qr
+    ? await pdf.embedPng(
+        await QRCode.toBuffer(settings.social_url || getApplicationBaseUrl(), {
+          type: "png",
+          errorCorrectionLevel: "M",
+          margin: 2,
+          width: 360,
+        })
+      )
+    : null;
 
   for (const member of input.members) {
     const page = pdf.addPage([A4_WIDTH, A4_HEIGHT]);
@@ -177,18 +183,42 @@ export async function generateExhibitorCredentialPdf(
     for (let y = PANEL_HEIGHT + 18; y < A4_HEIGHT; y += 18) {
       page.drawLine({ start: { x: 0, y }, end: { x: PANEL_WIDTH, y }, thickness: 0.2, color: rgb(0.9, 0.9, 0.91) });
     }
-    if (eventLogo) drawContainedImage(page, eventLogo, 52, 770, 194, 48);
+    if (eventLogo && settings.show_event_logo) drawContainedImage(page, eventLogo, 52, 770, 194, 48);
     else drawCenteredText(page, bold, input.event.name, 24, 789, PANEL_WIDTH - 48, 20, primary);
     page.drawRectangle({ x: 34, y: 722, width: PANEL_WIDTH - 68, height: 32, color: primary });
-    drawCenteredText(page, bold, "EXPOSITOR", 36, 731, PANEL_WIDTH - 72, 18, rgb(1, 1, 1));
+    drawCenteredText(page, bold, settings.front_label, 36, 731, PANEL_WIDTH - 72, 18, rgb(1, 1, 1));
     drawCenteredText(page, bold, member.fullName, 26, 670, PANEL_WIDTH - 52, 25, primary);
-    if (member.jobTitle) {
+    if (member.jobTitle && settings.show_job_title) {
       drawCenteredText(page, regular, member.jobTitle, 34, 646, PANEL_WIDTH - 68, 12, rgb(0.25, 0.25, 0.28));
     }
-    if (companyLogo) drawContainedImage(page, companyLogo, 94, 510, 110, 110);
+    const frontLogoBox =
+      settings.company_logo_size === "small"
+        ? { x: 114, y: 530, width: 70, height: 70 }
+        : settings.company_logo_size === "large"
+          ? { x: 74, y: 500, width: 150, height: 130 }
+          : { x: 94, y: 510, width: 110, height: 110 };
+    if (companyLogo) {
+      drawContainedImage(
+        page,
+        companyLogo,
+        frontLogoBox.x,
+        frontLogoBox.y,
+        frontLogoBox.width,
+        frontLogoBox.height
+      );
+    }
     else {
-      page.drawRectangle({ x: 94, y: 510, width: 110, height: 110, color: secondary });
-      drawCenteredText(page, bold, input.company.name, 102, 556, 94, 17, primary);
+      page.drawRectangle({ ...frontLogoBox, color: secondary });
+      drawCenteredText(
+        page,
+        bold,
+        input.company.name,
+        frontLogoBox.x + 8,
+        frontLogoBox.y + frontLogoBox.height / 2 - 6,
+        frontLogoBox.width - 16,
+        17,
+        primary
+      );
     }
     drawCenteredText(page, bold, input.company.name, 28, 475, PANEL_WIDTH - 56, 15, primary);
     drawCenteredText(
@@ -205,8 +235,8 @@ export async function generateExhibitorCredentialPdf(
     // Redes sociais - quadrante superior direito. QR é institucional, igual para toda a equipe.
     page.drawRectangle({ x: PANEL_WIDTH, y: PANEL_HEIGHT, width: PANEL_WIDTH, height: PANEL_HEIGHT, color: secondary });
     page.drawRectangle({ x: 326, y: 670, width: 240, height: 120, color: rgb(1, 1, 1) });
-    drawParagraph(page, bold, "Acompanhe o Clube do Frio", 341, 750, 106, 17, 3, primary);
-    page.drawImage(socialQr, { x: 463, y: 690, width: 82, height: 82 });
+    drawParagraph(page, bold, settings.social_heading, 341, 750, socialQr ? 106 : 210, 17, 3, primary);
+    if (socialQr) page.drawImage(socialQr, { x: 463, y: 690, width: 82, height: 82 });
     const socialRows = [settings.facebook_label, settings.instagram_label, settings.youtube_label].filter(Boolean) as string[];
     socialRows.forEach((label, index) => {
       const rowY = 610 - index * 60;
@@ -217,7 +247,7 @@ export async function generateExhibitorCredentialPdf(
     // Identidade da empresa - quadrante inferior esquerdo.
     page.drawRectangle({ x: 0, y: 0, width: PANEL_WIDTH, height: PANEL_HEIGHT, color: secondary });
     page.drawRectangle({ x: 28, y: 78, width: 242, height: 310, color: rgb(1, 1, 1) });
-    drawCenteredText(page, bold, "EQUIPE EXPOSITORA", 48, 354, 202, 16, primary);
+    drawCenteredText(page, bold, settings.company_heading, 48, 354, 202, 16, primary);
     if (companyLogo) drawContainedImage(page, companyLogo, 74, 205, 150, 125);
     else drawCenteredText(page, bold, input.company.name, 48, 270, 202, 23, primary);
     drawCenteredText(page, bold, input.company.name, 48, 175, 202, 18, primary);
@@ -236,7 +266,16 @@ export async function generateExhibitorCredentialPdf(
     // Programação - quadrante inferior direito.
     page.drawRectangle({ x: PANEL_WIDTH, y: 0, width: PANEL_WIDTH, height: PANEL_HEIGHT, color: rgb(1, 1, 1) });
     page.drawRectangle({ x: PANEL_WIDTH, y: 330, width: PANEL_WIDTH, height: 91, color: primary });
-    drawCenteredText(page, bold, "PROGRAMAÇÃO", PANEL_WIDTH + 20, 368, PANEL_WIDTH - 40, 23, rgb(1, 1, 1));
+    drawCenteredText(
+      page,
+      bold,
+      settings.schedule_heading,
+      PANEL_WIDTH + 20,
+      368,
+      PANEL_WIDTH - 40,
+      23,
+      rgb(1, 1, 1)
+    );
     drawCenteredText(page, bold, formatDates(input.event.dates), PANEL_WIDTH + 24, 278, PANEL_WIDTH - 48, 25, primary);
     drawParagraph(page, regular, settings.schedule_text || "Consulte a programação oficial do evento.", PANEL_WIDTH + 42, 230, PANEL_WIDTH - 84, 14, 6, primary);
     drawCenteredText(page, bold, input.event.location, PANEL_WIDTH + 28, 86, PANEL_WIDTH - 56, 18, primary);
