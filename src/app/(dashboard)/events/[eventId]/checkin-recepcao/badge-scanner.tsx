@@ -20,6 +20,7 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue }: BadgeScann
   const router = useRouter();
   const [manualValue, setManualValue] = useState("");
   const [result, setResult] = useState<ScannerResult | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [cameraState, setCameraState] = useState<"idle" | "starting" | "active">("idle");
   const scannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null);
   const processingRef = useRef(false);
@@ -28,6 +29,8 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue }: BadgeScann
   const processQrValue = useCallback(async (value: string) => {
     if (processingRef.current || !value.trim()) return;
     processingRef.current = true;
+    setIsProcessing(true);
+    setResult(null);
     try {
       const response = await fetch(`/api/events/${eventId}/badge-checkin`, {
         method: "POST",
@@ -60,6 +63,7 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue }: BadgeScann
     } finally {
       window.setTimeout(() => {
         processingRef.current = false;
+        setIsProcessing(false);
       }, 700);
     }
   }, [eventDayId, eventId, router]);
@@ -157,10 +161,22 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue }: BadgeScann
           <input
             value={manualValue}
             onChange={(event) => setManualValue(event.target.value)}
+            disabled={isProcessing}
             className="min-h-12 min-w-0 rounded-xl border bg-white px-4 font-mono text-sm"
             placeholder="Aguardando QR Code..."
           />
-          <button className="min-h-12 rounded-xl bg-[var(--primary)] px-5 text-sm font-semibold text-white">Ler</button>
+          <button
+            disabled={isProcessing || !manualValue.trim()}
+            aria-busy={isProcessing}
+            className="min-h-12 rounded-xl bg-[var(--primary)] px-5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
+          >
+            <span className="inline-flex items-center justify-center gap-2">
+              {isProcessing ? (
+                <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
+              ) : null}
+              {isProcessing ? "Lendo..." : "Ler"}
+            </span>
+          </button>
         </form>
 
         {result ? (

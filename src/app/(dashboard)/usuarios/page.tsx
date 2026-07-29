@@ -1,4 +1,7 @@
+import Form from "next/form";
+import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
+import { formatSaoPauloDate, formatSaoPauloDateTime } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listAllAuthUsers } from "@/lib/users/auth-admin";
 import { CreateUserForm } from "@/app/(dashboard)/usuarios/create-user-form";
@@ -127,14 +130,17 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
       <div className="surface-card rounded-xl p-5">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h2 className="font-headline text-xl font-bold text-[var(--foreground)]">Lista de Usuários</h2>
-          <form className="w-full max-w-sm">
+          <Form action="/usuarios" scroll={false} className="flex w-full max-w-md gap-2">
             <input
               name="q"
               defaultValue={q}
               placeholder="Buscar por e-mail, role ou status"
               className="w-full rounded-xl border border-[var(--outline-variant)]/50 bg-white px-4 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
             />
-          </form>
+            <SubmitButton pendingLabel="Buscando..." className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white">
+              Buscar
+            </SubmitButton>
+          </Form>
         </div>
 
         <div className="overflow-x-auto">
@@ -176,12 +182,12 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                         <option value="active">Ativo</option>
                         <option value="inactive">Inativo</option>
                       </select>
-                      <button
-                        type="submit"
+                      <SubmitButton
+                        pendingLabel="Salvando..."
                         className="rounded-lg border border-[var(--outline-variant)]/65 bg-white px-3 py-1.5 text-xs font-semibold text-[var(--foreground)]"
                       >
                         Salvar
-                      </button>
+                      </SubmitButton>
                     </form>
                   </td>
                   <td className="px-4 py-3">
@@ -194,8 +200,8 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <p>{row.lastSignInAt ? new Date(row.lastSignInAt).toLocaleString("pt-BR") : "-"}</p>
-                    <p className="text-xs text-muted">Criado em {new Date(row.createdAt).toLocaleDateString("pt-BR")}</p>
+                    <p>{row.lastSignInAt ? formatSaoPauloDateTime(row.lastSignInAt) : "-"}</p>
+                    <p className="text-xs text-muted">Criado em {formatSaoPauloDate(row.createdAt)}</p>
                   </td>
                   <td className="px-4 py-3 text-right text-xs text-muted">{roleLabel(row.role)}</td>
                 </tr>

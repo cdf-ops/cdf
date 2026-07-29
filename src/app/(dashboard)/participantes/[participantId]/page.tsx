@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ParticipantDetailsForm } from "@/app/(dashboard)/participantes/[participantId]/participant-details-form";
 import { requireSession } from "@/lib/auth/session";
+import { formatDateOnly, formatSaoPauloDateTime } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type ParticipantDetailPageProps = {
@@ -175,7 +176,7 @@ export default async function ParticipantDetailPage({ params }: ParticipantDetai
                   <p className="text-xs font-bold uppercase tracking-wide text-[var(--outline)]">Dias inscritos</p>
                   <p className="mt-1 text-sm">
                     {event.registeredDays.length
-                      ? event.registeredDays.map((day) => new Date(day).toLocaleDateString("pt-BR")).join(", ")
+                      ? event.registeredDays.map((day) => formatDateOnly(day)).join(", ")
                       : "Sem inscrição registrada"}
                   </p>
                 </div>
@@ -183,7 +184,7 @@ export default async function ParticipantDetailPage({ params }: ParticipantDetai
                   <p className="text-xs font-bold uppercase tracking-wide text-[var(--outline)]">Check-ins de entrada</p>
                   <p className="mt-1 text-sm">
                     {event.checkins.length
-                      ? event.checkins.map((checkin) => new Date(checkin).toLocaleString("pt-BR")).join(", ")
+                      ? event.checkins.map((checkin) => formatSaoPauloDateTime(checkin)).join(", ")
                       : "Sem check-in"}
                   </p>
                 </div>

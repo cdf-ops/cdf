@@ -1,5 +1,8 @@
 import Link from "next/link";
+import Form from "next/form";
+import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
+import { formatSaoPauloDateTime } from "@/lib/date-time";
 import {
   parseParticipantFilters,
   participantFiltersToSearchParams,
@@ -29,7 +32,7 @@ function formatLastCheckin(value: string | null) {
   const date = new Date(value);
   const elapsedDays = Math.max(0, Math.floor((Date.now() - date.getTime()) / 86_400_000));
   return {
-    date: date.toLocaleString("pt-BR"),
+    date: formatSaoPauloDateTime(date),
     days: elapsedDays === 0 ? "Hoje" : `${elapsedDays} dia${elapsedDays === 1 ? "" : "s"}`,
   };
 }
@@ -81,7 +84,7 @@ export default async function ParticipantsPage({ searchParams }: ParticipantsPag
         </div>
       </div>
 
-      <form className="shell-card rounded-xl p-4">
+      <Form action="/participantes" scroll={false} className="shell-card rounded-xl p-4">
         <div className="grid gap-3 md:grid-cols-3">
           <input
             name="q"
@@ -131,7 +134,9 @@ export default async function ParticipantsPage({ searchParams }: ParticipantsPag
           </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button className="gradient-primary rounded-xl px-4 py-2.5 text-sm font-semibold text-white">Filtrar</button>
+          <SubmitButton pendingLabel="Filtrando..." className="gradient-primary rounded-xl px-4 py-2.5 text-sm font-semibold text-white">
+            Filtrar
+          </SubmitButton>
           <Link
             href="/participantes"
             className="rounded-xl border border-[var(--outline-variant)]/55 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--foreground)]"
@@ -139,7 +144,7 @@ export default async function ParticipantsPage({ searchParams }: ParticipantsPag
             Limpar filtros
           </Link>
         </div>
-      </form>
+      </Form>
 
       <div className="surface-card overflow-hidden rounded-xl">
         <div className="flex items-center justify-between border-b border-[var(--surface-container)] px-5 py-4">

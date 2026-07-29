@@ -1,4 +1,7 @@
+import Form from "next/form";
+import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
+import { formatDateOnly, formatSaoPauloTime, getSaoPauloDateKey } from "@/lib/date-time";
 import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerStandCheckinAction } from "@/app/(dashboard)/events/[eventId]/checkin-expositor/actions";
@@ -17,7 +20,7 @@ function getDefaultDayId(eventDays: { id: string; date: string }[]) {
   if (!eventDays.length) {
     return "";
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getSaoPauloDateKey();
   return eventDays.find((day) => day.date === today)?.id ?? eventDays[0].id;
 }
 
@@ -191,7 +194,11 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
           </p>
         ) : null}
 
-        <form className="mt-4 grid gap-3 md:grid-cols-4">
+        <Form
+          action={`/events/${eventId}/checkin-expositor`}
+          scroll={false}
+          className="mt-4 grid gap-3 md:grid-cols-4"
+        >
           <input type="hidden" name="day" value={selectedDayId} />
           <input
             name="q"
@@ -199,10 +206,19 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
             placeholder="Número do participante, documento ou nome"
             className="md:col-span-3 rounded-xl border border-[var(--outline-variant)]/55 bg-white px-4 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
           />
-          <button className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white">Buscar</button>
-        </form>
+          <SubmitButton
+            pendingLabel="Buscando..."
+            className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white"
+          >
+            Buscar
+          </SubmitButton>
+        </Form>
 
-        <form className="mt-3 flex items-end gap-2">
+        <Form
+          action={`/events/${eventId}/checkin-expositor`}
+          scroll={false}
+          className="mt-3 flex items-end gap-2"
+        >
           <input type="hidden" name="q" value={queryText} />
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-[var(--outline)]">Dia do Evento</label>
@@ -213,15 +229,18 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
             >
               {eventDays.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {new Date(item.date).toLocaleDateString("pt-BR")}
+                  {formatDateOnly(item.date)}
                 </option>
               ))}
             </select>
           </div>
-          <button className="rounded-xl border border-[var(--outline-variant)]/65 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--foreground)]">
+          <SubmitButton
+            pendingLabel="Trocando..."
+            className="rounded-xl border border-[var(--outline-variant)]/65 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--foreground)]"
+          >
             Trocar dia
-          </button>
-        </form>
+          </SubmitButton>
+        </Form>
       </div>
 
       {queryText.length >= 2 ? (
@@ -258,9 +277,12 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
                         <input type="hidden" name="event_day_id" value={selectedDayId} />
                         <input type="hidden" name="participant_id" value={row.id} />
                         <input type="hidden" name="redirect_url" value={returnUrl} />
-                        <button className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-white hover:brightness-105">
+                        <SubmitButton
+                          pendingLabel="Registrando..."
+                          className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-white hover:brightness-105"
+                        >
                           Registrar no Stand
-                        </button>
+                        </SubmitButton>
                       </form>
                     ) : (
                       <span className="text-xs font-semibold text-muted">Sem ação</span>
@@ -302,7 +324,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
                     <td className="px-3 py-2">
                       {participant ? `${participant.document_type} ${participant.document_number}` : "-"}
                     </td>
-                    <td className="px-3 py-2">{new Date(item.checked_in_at).toLocaleTimeString("pt-BR")}</td>
+                    <td className="px-3 py-2">{formatSaoPauloTime(item.checked_in_at)}</td>
                   </tr>
                 );
               })}

@@ -1,5 +1,8 @@
 import Link from "next/link";
+import Form from "next/form";
+import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
+import { formatDateOnly, formatSaoPauloDateTime, getSaoPauloDateKey } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { deleteRaffleAction } from "@/app/(dashboard)/events/[eventId]/sorteio/actions";
 
@@ -16,7 +19,7 @@ function getDefaultDayId(eventDays: { id: string; date: string }[]) {
   if (!eventDays.length) {
     return "";
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getSaoPauloDateKey();
   return eventDays.find((day) => day.date === today)?.id ?? eventDays[0].id;
 }
 
@@ -118,7 +121,7 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
       <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
         <div className="surface-card rounded-2xl p-6">
           <h3 className="font-headline text-2xl font-bold tracking-tight text-[var(--foreground)]">Dia do Sorteio</h3>
-          <form className="mt-4 grid gap-4 md:grid-cols-3">
+          <Form action={`/events/${eventId}/sorteio`} scroll={false} className="mt-4 grid gap-4 md:grid-cols-3">
             <div className="md:col-span-2">
               <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Selecionar Dia do Evento</label>
               <select
@@ -128,15 +131,18 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
               >
                 {eventDays.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {new Date(`${item.date}T12:00:00`).toLocaleDateString("pt-BR")}
+                    {formatDateOnly(item.date)}
                   </option>
                 ))}
               </select>
             </div>
-            <button className="ghost-border mt-5 rounded-xl bg-[var(--surface-container-lowest)] px-4 py-3 text-sm font-semibold text-[var(--foreground)]">
+            <SubmitButton
+              pendingLabel="Carregando..."
+              className="ghost-border mt-5 rounded-xl bg-[var(--surface-container-lowest)] px-4 py-3 text-sm font-semibold text-[var(--foreground)]"
+            >
               Carregar Dia
-            </button>
-          </form>
+            </SubmitButton>
+          </Form>
 
           <div className="mt-5 rounded-xl border border-[var(--outline-variant)]/35 bg-[var(--surface-container-low)] p-4">
             <p className="text-sm font-semibold text-[var(--foreground)]">Como operar durante o evento</p>
@@ -177,7 +183,7 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
                       Rodada {roundNumberByRaffleId.get(raffle.id) ?? "-"}
                     </p>
                     <p className="mt-1 text-sm text-muted">
-                      {raffle.executed_at ? new Date(raffle.executed_at).toLocaleString("pt-BR") : "-"} | {raffle.winners_count} ganhador(es)
+                      {raffle.executed_at ? formatSaoPauloDateTime(raffle.executed_at) : "-"} | {raffle.winners_count} ganhador(es)
                     </p>
                   </div>
 
@@ -186,7 +192,9 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
                       <input type="hidden" name="raffle_id" value={raffle.id} />
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="redirect_url" value={returnUrl} />
-                      <button className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white">Excluir rodada</button>
+                      <SubmitButton pendingLabel="Excluindo..." className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white">
+                        Excluir rodada
+                      </SubmitButton>
                     </form>
                   ) : null}
                 </div>

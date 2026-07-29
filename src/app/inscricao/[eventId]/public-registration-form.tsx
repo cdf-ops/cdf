@@ -5,6 +5,7 @@ import {
   submitPublicRegistration,
   type PublicRegistrationState,
 } from "@/app/inscricao/[eventId]/actions";
+import { formatDateOnly } from "@/lib/date-time";
 
 type PublicRegistrationFormProps = {
   eventId: string;
@@ -167,7 +168,7 @@ export function PublicRegistrationForm({ eventId, eventDays, embedded = false }:
               className="flex items-center gap-2 rounded-lg border border-[var(--outline-variant)]/45 bg-white px-3 py-2 text-sm"
             >
               <input type="checkbox" name="selected_days" value={day.id} />
-              <span>{new Date(day.date).toLocaleDateString("pt-BR")}</span>
+              <span>{formatDateOnly(day.date)}</span>
             </label>
           ))}
         </div>

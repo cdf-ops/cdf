@@ -5,6 +5,7 @@ import {
   createParticipantAction,
   type CreateParticipantState,
 } from "@/app/(dashboard)/events/[eventId]/participants/actions";
+import { formatDateOnly } from "@/lib/date-time";
 
 type CreateParticipantFormProps = {
   eventId: string;
@@ -93,7 +94,7 @@ export function CreateParticipantForm({ eventId, eventDays, canCreate }: CreateP
           {eventDays.map((day) => (
             <label key={day.id} className="inline-flex items-center gap-2 rounded-lg border px-2 py-1 text-xs">
               <input type="checkbox" name="selected_days" value={day.id} />
-              {new Date(day.date).toLocaleDateString("pt-BR")}
+              {formatDateOnly(day.date)}
             </label>
           ))}
         </div>

@@ -1,4 +1,7 @@
+import Form from "next/form";
+import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
+import { formatDateOnly } from "@/lib/date-time";
 import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CreateParticipantForm } from "@/app/(dashboard)/events/[eventId]/participants/create-participant-form";
@@ -249,14 +252,17 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
       <div className="surface-card rounded-xl p-5">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h2 className="font-headline text-2xl font-extrabold tracking-tight text-[var(--foreground)]">Lista de Participantes</h2>
-          <form className="w-full max-w-sm">
+          <Form action={`/events/${eventId}/participants`} scroll={false} className="flex w-full max-w-md gap-2">
             <input
               name="q"
               defaultValue={q}
               placeholder="Pesquisar por número, nome, doc, e-mail ou telefone"
               className="w-full rounded-xl border border-[var(--outline-variant)]/50 bg-white px-4 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
             />
-          </form>
+            <SubmitButton pendingLabel="Buscando..." className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white">
+              Buscar
+            </SubmitButton>
+          </Form>
         </div>
 
         <div className="mb-4 grid gap-3 sm:grid-cols-3">
@@ -299,7 +305,7 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
                     <div className="flex flex-wrap gap-1.5">
                       {row.days.map((day) => (
                         <span key={day} className="rounded-full bg-[var(--primary-soft)]/45 px-2 py-1 text-xs font-semibold text-[var(--primary)]">
-                          {new Date(day).toLocaleDateString("pt-BR")}
+                          {formatDateOnly(day)}
                         </span>
                       ))}
                     </div>

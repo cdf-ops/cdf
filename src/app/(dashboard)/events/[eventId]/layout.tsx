@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { restoreEventAction } from "@/app/(dashboard)/events/actions";
 import { EventMobileNav } from "@/app/(dashboard)/events/[eventId]/event-mobile-nav";
+import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
 import type { AppRole } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
@@ -40,9 +41,9 @@ export default async function EventScopedLayout({ children, params }: EventScope
           {session.role === "super_adm" ? (
             <form action={restoreEventAction}>
               <input type="hidden" name="event_id" value={event.id} />
-              <button type="submit" className="gradient-primary rounded-xl px-4 py-2.5 text-sm font-semibold text-white">
+              <SubmitButton pendingLabel="Restaurando..." className="gradient-primary rounded-xl px-4 py-2.5 text-sm font-semibold text-white">
                 Restaurar como rascunho
-              </button>
+              </SubmitButton>
             </form>
           ) : null}
         </div>

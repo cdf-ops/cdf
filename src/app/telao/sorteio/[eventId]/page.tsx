@@ -1,4 +1,5 @@
 import { requireSession } from "@/lib/auth/session";
+import { getSaoPauloDateKey } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { RaffleStage } from "@/app/telao/sorteio/[eventId]/raffle-stage";
 
@@ -11,7 +12,7 @@ function getDefaultDayId(eventDays: { id: string; date: string }[]) {
   if (!eventDays.length) {
     return "";
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getSaoPauloDateKey();
   return eventDays.find((day) => day.date === today)?.id ?? eventDays[0].id;
 }
 

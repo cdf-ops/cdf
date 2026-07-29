@@ -46,6 +46,10 @@ textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
+button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
 :focus-visible {
   outline: 3px solid color-mix(in srgb, var(--primary) 45%, transparent);
   outline-offset: 2px;
