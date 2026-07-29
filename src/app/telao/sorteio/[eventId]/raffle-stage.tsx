@@ -9,13 +9,20 @@ type RaffleStageProps = {
   eventDayId: string;
   eventName: string;
   eventDate: string;
+  sponsorBannerUrl: string | null;
 };
 
 type Stage = "setup" | "countdown" | "drawing" | "result";
 
 const COUNTDOWN_SECONDS = 2;
 
-export function RaffleStage({ eventId, eventDayId, eventName, eventDate }: RaffleStageProps) {
+export function RaffleStage({
+  eventId,
+  eventDayId,
+  eventName,
+  eventDate,
+  sponsorBannerUrl,
+}: RaffleStageProps) {
   const [stage, setStage] = useState<Stage>("setup");
   const [winnersCount, setWinnersCount] = useState(1);
   const [includePreviousWinners, setIncludePreviousWinners] = useState(false);
@@ -87,7 +94,7 @@ export function RaffleStage({ eventId, eventDayId, eventName, eventDate }: Raffl
           </div>
         </header>
 
-        <div className="flex flex-1 items-center justify-center py-8">
+        <div className="flex flex-1 items-center justify-center py-4 md:py-6">
           {stage === "setup" ? (
             <div className="w-full max-w-xl rounded-2xl bg-white/88 p-6 text-center shadow-[0_18px_48px_-30px_rgba(0,96,168,0.5)] md:p-8">
               <p className="font-headline text-4xl font-extrabold tracking-tight md:text-6xl">Nova rodada</p>
@@ -182,6 +189,17 @@ export function RaffleStage({ eventId, eventDayId, eventName, eventDate }: Raffl
             </div>
           ) : null}
         </div>
+
+        {sponsorBannerUrl ? (
+          <footer className="flex shrink-0 justify-center pt-2">
+            <div
+              role="img"
+              aria-label="Patrocinadores do evento"
+              className="aspect-[10/3] w-full max-w-[1000px] bg-contain bg-center bg-no-repeat"
+              style={{ backgroundImage: `url("${sponsorBannerUrl}")` }}
+            />
+          </footer>
+        ) : null}
       </section>
     </main>
   );

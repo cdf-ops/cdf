@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/auth/session";
 import { getSaoPauloDateKey } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createAssetSignedUrl } from "@/lib/certificates/assets";
 import { RaffleStage } from "@/app/telao/sorteio/[eventId]/raffle-stage";
 
 type RaffleTeleprompterPageProps = {
@@ -31,7 +32,12 @@ export default async function RaffleTeleprompterPage({ params, searchParams }: R
   const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getDefaultDayId(eventDays);
   const selectedDay = eventDays.find((item) => item.id === selectedDayId);
 
-  const { data: event } = await admin.from("events").select("name").eq("id", eventId).maybeSingle();
+  const { data: event } = await admin
+    .from("events")
+    .select("name, raffle_sponsor_banner_path")
+    .eq("id", eventId)
+    .maybeSingle();
+  const sponsorBannerUrl = await createAssetSignedUrl(admin, event?.raffle_sponsor_banner_path);
 
   if (!selectedDayId || !selectedDay) {
     return (
@@ -50,6 +56,7 @@ export default async function RaffleTeleprompterPage({ params, searchParams }: R
       eventDayId={selectedDayId}
       eventName={event?.name ?? "Evento"}
       eventDate={selectedDay.date}
+      sponsorBannerUrl={sponsorBannerUrl}
     />
   );
 }

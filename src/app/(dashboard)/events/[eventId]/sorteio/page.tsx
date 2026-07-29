@@ -4,7 +4,11 @@ import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
 import { formatDateOnly, formatSaoPauloDateTime, getSaoPauloDateKey } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { deleteRaffleAction } from "@/app/(dashboard)/events/[eventId]/sorteio/actions";
+import { createAssetSignedUrl } from "@/lib/certificates/assets";
+import {
+  deleteRaffleAction,
+  saveRaffleSponsorBannerAction,
+} from "@/app/(dashboard)/events/[eventId]/sorteio/actions";
 
 type RafflePageProps = {
   params: Promise<{ eventId: string }>;
@@ -48,13 +52,17 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
   const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getDefaultDayId(eventDays);
   const returnUrl = `/events/${eventId}/sorteio?day=${selectedDayId}`;
 
-  const { data: entryCheckinsData } = await admin
-    .from("entry_checkins")
-    .select("participant_id")
-    .eq("event_day_id", selectedDayId)
-    .is("deleted_at", null);
+  const [{ data: entryCheckinsData }, { data: raffleSettingsEvent }] = await Promise.all([
+    admin
+      .from("entry_checkins")
+      .select("participant_id")
+      .eq("event_day_id", selectedDayId)
+      .is("deleted_at", null),
+    admin.from("events").select("raffle_sponsor_banner_path").eq("id", eventId).maybeSingle(),
+  ]);
   const eligibleParticipantIds = [...new Set((entryCheckinsData ?? []).map((item) => item.participant_id))];
   const eligibleCount = eligibleParticipantIds.length;
+  const sponsorBannerUrl = await createAssetSignedUrl(admin, raffleSettingsEvent?.raffle_sponsor_banner_path);
 
   const { data: rafflesData } = await admin
     .from("raffles")
@@ -162,6 +170,56 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
             <p className="mt-1 text-2xl font-extrabold">{raffles.length}</p>
           </div>
         </div>
+      </div>
+
+      <div className="surface-card rounded-2xl p-6">
+        <h3 className="font-headline text-2xl font-bold tracking-tight text-[var(--foreground)]">
+          Banner de patrocinadores do telão
+        </h3>
+        <p className="mt-2 text-sm text-muted">
+          Envie uma imagem PNG ou JPG com exatamente 1000 × 300 pixels. Ela ficará centralizada no rodapé do telão.
+        </p>
+
+        {sponsorBannerUrl ? (
+          <div
+            role="img"
+            aria-label="Banner atual dos patrocinadores"
+            className="mx-auto mt-5 aspect-[10/3] w-full max-w-[1000px] rounded-xl border border-[var(--outline-variant)]/40 bg-white bg-contain bg-center bg-no-repeat"
+            style={{ backgroundImage: `url("${sponsorBannerUrl}")` }}
+          />
+        ) : (
+          <div className="mx-auto mt-5 flex aspect-[10/3] w-full max-w-[1000px] items-center justify-center rounded-xl border border-dashed border-[var(--outline-variant)] bg-[var(--surface-container-low)] px-4 text-center text-sm text-muted">
+            Nenhum banner configurado para este evento.
+          </div>
+        )}
+
+        <form action={saveRaffleSponsorBannerAction} className="mt-5 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="redirect_url" value={returnUrl} />
+          <div>
+            <label className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--outline)]">
+              Imagem 1000 × 300
+            </label>
+            <input
+              name="sponsor_banner"
+              type="file"
+              accept="image/png,image/jpeg"
+              className="mt-2 block w-full rounded-xl border border-[var(--outline-variant)]/50 bg-white px-3 py-3 text-sm"
+            />
+            {sponsorBannerUrl ? (
+              <label className="mt-3 flex items-center gap-2 text-sm text-muted">
+                <input name="remove_banner" type="checkbox" />
+                Remover o banner atual
+              </label>
+            ) : null}
+          </div>
+          <SubmitButton
+            pendingLabel="Salvando banner..."
+            className="gradient-primary rounded-xl px-5 py-3 text-sm font-bold text-white"
+          >
+            Salvar banner
+          </SubmitButton>
+        </form>
       </div>
 
       <div className="surface-card rounded-2xl p-5">

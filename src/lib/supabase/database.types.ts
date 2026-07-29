@@ -46,6 +46,7 @@ export type Database = {
           archived_at: string | null;
           archived_by: string | null;
           event_logo_path: string | null;
+          raffle_sponsor_banner_path: string | null;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -59,6 +60,7 @@ export type Database = {
           archived_at?: string | null;
           archived_by?: string | null;
           event_logo_path?: string | null;
+          raffle_sponsor_banner_path?: string | null;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -72,6 +74,7 @@ export type Database = {
           archived_at?: string | null;
           archived_by?: string | null;
           event_logo_path?: string | null;
+          raffle_sponsor_banner_path?: string | null;
           created_by?: string;
           created_at?: string;
           updated_at?: string;
