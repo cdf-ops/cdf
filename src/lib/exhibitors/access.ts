@@ -1,5 +1,6 @@
 import type { CurrentSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getActiveExhibitorCompanyIdsForUser } from "@/lib/exhibitors/access-status";
 
 export async function getAccessibleExhibitorCompanyIds(session: CurrentSession) {
   const admin = createAdminClient();
@@ -13,12 +14,7 @@ export async function getAccessibleExhibitorCompanyIds(session: CurrentSession) 
     return [];
   }
 
-  const { data } = await admin
-    .from("exhibitor_users")
-    .select("exhibitor_company_id")
-    .eq("user_id", session.userId);
-
-  return [...new Set((data ?? []).map((link) => link.exhibitor_company_id))];
+  return getActiveExhibitorCompanyIdsForUser(admin, session.userId);
 }
 
 export async function canManageExhibitorCompany(session: CurrentSession, companyId: string) {

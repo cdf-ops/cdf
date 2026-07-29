@@ -6,6 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { listAllAuthUsers } from "@/lib/users/auth-admin";
 import { CreateUserForm } from "@/app/(dashboard)/usuarios/create-user-form";
 import { updateUserProfileAction } from "@/app/(dashboard)/usuarios/actions";
+import { EmergencyResetForm } from "@/app/(dashboard)/usuarios/emergency-reset-form";
+import { isExhibitorAccessLinkActive } from "@/lib/exhibitors/access-status";
 
 type UsersPageProps = {
   searchParams: Promise<{
@@ -19,6 +21,14 @@ type ProfileRow = {
   id: string;
   role: "super_adm" | "organizador" | "recepcao" | "expositor";
   status: "active" | "inactive";
+  password_change_required: boolean;
+};
+
+type ExhibitorAccessLink = {
+  user_id: string;
+  status: "active" | "suspended";
+  access_valid_until: string;
+  emergency_access_until: string | null;
 };
 
 function roleLabel(role: "super_adm" | "organizador" | "recepcao" | "expositor") {
@@ -45,7 +55,7 @@ function chunkArray<T>(items: T[], chunkSize: number) {
 }
 
 export default async function UsersPage({ searchParams }: UsersPageProps) {
-  await requireSession(["super_adm"]);
+  const session = await requireSession(["super_adm", "organizador"]);
   const { q = "", notice, notice_type } = await searchParams;
   const queryText = q.trim().toLowerCase();
 
@@ -57,13 +67,28 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
     userIds.length > 0
       ? await Promise.all(
           chunkArray(userIds, 400).map(async (idsChunk) => {
-            const { data } = await admin.from("user_profiles").select("id, role, status").in("id", idsChunk);
+            const { data } = await admin
+              .from("user_profiles")
+              .select("id, role, status, password_change_required")
+              .in("id", idsChunk);
             return (data ?? []) as ProfileRow[];
           })
         )
       : [];
 
   const profileMap = new Map(profileChunks.flat().map((profile) => [profile.id, profile]));
+  const { data: exhibitorLinksData } = userIds.length
+    ? await admin
+        .from("exhibitor_users")
+        .select("user_id, status, access_valid_until, emergency_access_until")
+        .in("user_id", userIds)
+    : { data: [] };
+  const exhibitorLinksByUser = new Map<string, ExhibitorAccessLink[]>();
+  (exhibitorLinksData ?? []).forEach((link) => {
+    const current = exhibitorLinksByUser.get(link.user_id) ?? [];
+    current.push(link);
+    exhibitorLinksByUser.set(link.user_id, current);
+  });
 
   const rows = authUsers
     .map((user) => {
@@ -74,10 +99,16 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
         role: profile?.role ?? "recepcao",
         status: profile?.status ?? "active",
         hasProfile: Boolean(profile),
+        passwordChangeRequired: profile?.password_change_required ?? false,
+        exhibitorAccessActive:
+          profile?.role === "expositor"
+            ? (exhibitorLinksByUser.get(user.id) ?? []).some((link) => isExhibitorAccessLinkActive(link))
+            : true,
         lastSignInAt: user.last_sign_in_at,
         createdAt: user.created_at,
       };
     })
+    .filter((row) => session.role === "super_adm" || ["recepcao", "expositor"].includes(row.role))
     .filter((row) => {
       if (!queryText) {
         return true;
@@ -97,10 +128,12 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
     <section className="space-y-6">
       <div className="surface-card rounded-xl p-5">
         <h1 className="font-headline text-3xl font-extrabold tracking-tight text-[var(--foreground)]">Usuários</h1>
-        <p className="mt-1 text-sm text-muted">Gestão de usuários e perfis de acesso do sistema (somente Super ADM).</p>
+        <p className="mt-1 text-sm text-muted">
+          Gestão de perfis, senhas temporárias e validade dos acessos.
+        </p>
       </div>
 
-      <CreateUserForm />
+      {session.role === "super_adm" ? <CreateUserForm /> : null}
 
       {notice ? (
         <p
@@ -162,6 +195,7 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                     <p className="text-xs text-muted">{row.hasProfile ? row.userId : `${row.userId} • sem perfil salvo`}</p>
                   </td>
                   <td className="px-4 py-3">
+                    {session.role === "super_adm" ? (
                     <form action={updateUserProfileAction} className="flex items-center gap-2">
                       <input type="hidden" name="user_id" value={row.userId} />
                       <select
@@ -189,6 +223,9 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                         Salvar
                       </SubmitButton>
                     </form>
+                    ) : (
+                      <span className="font-semibold">{roleLabel(row.role)}</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -198,12 +235,28 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                     >
                       {row.status === "active" ? "Ativo" : "Inativo"}
                     </span>
+                    {row.passwordChangeRequired ? (
+                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">
+                        Troca de senha pendente
+                      </span>
+                    ) : null}
+                    {row.role === "expositor" && !row.exhibitorAccessActive ? (
+                      <span className="ml-2 rounded-full bg-red-100 px-2 py-1 text-xs font-bold text-red-700">
+                        Vínculo vencido
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3">
                     <p>{row.lastSignInAt ? formatSaoPauloDateTime(row.lastSignInAt) : "-"}</p>
                     <p className="text-xs text-muted">Criado em {formatSaoPauloDate(row.createdAt)}</p>
                   </td>
-                  <td className="px-4 py-3 text-right text-xs text-muted">{roleLabel(row.role)}</td>
+                  <td className="px-4 py-3 text-right align-top">
+                    {row.status === "active" && row.userId !== session.userId ? (
+                      <EmergencyResetForm userId={row.userId} email={row.email} />
+                    ) : (
+                      <span className="text-xs text-muted">Sem ação disponível</span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {!rows.length ? (

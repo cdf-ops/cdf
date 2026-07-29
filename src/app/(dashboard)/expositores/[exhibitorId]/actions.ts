@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createAuthExhibitorUserByEmail, findAuthUserByEmail } from "@/lib/exhibitors/auth";
+import { addDaysFromNow } from "@/lib/exhibitors/access-status";
 import { mapExhibitorDbErrorToUserMessage, mapUnexpectedExhibitorErrorToUserMessage } from "@/lib/exhibitors/db-errors";
 import { hasValidCnpjFormat, normalizeCnpj, normalizeEmail, normalizePhone } from "@/lib/exhibitors/helpers";
 
@@ -252,6 +253,7 @@ export async function linkExhibitorUserAction(
 
   const userEmail = normalizeEmail(parsed.data.userEmail);
   let onboardingMessage = "";
+  let createdWithTemporaryPassword = false;
   let authUser: Awaited<ReturnType<typeof findAuthUserByEmail>>;
   try {
     authUser = await findAuthUserByEmail(userEmail);
@@ -263,7 +265,8 @@ export async function linkExhibitorUserAction(
     try {
       const created = await createAuthExhibitorUserByEmail(userEmail);
       authUser = created.user;
-      onboardingMessage = ` Novo usuário criado no Auth. Senha temporária: ${created.temporaryPassword}`;
+      createdWithTemporaryPassword = true;
+      onboardingMessage = ` Novo usuário criado no Auth. Senha temporária: ${created.temporaryPassword}. A troca será obrigatória no primeiro acesso.`;
     } catch (error) {
       return withError(error instanceof Error ? error.message : "Falha ao criar usuário no Auth.");
     }
@@ -298,17 +301,30 @@ export async function linkExhibitorUserAction(
     id: authUser.id,
     role: "expositor",
     status: "active",
+    ...(createdWithTemporaryPassword
+      ? {
+          password_change_required: true,
+          temporary_password_issued_at: new Date().toISOString(),
+          temporary_password_issued_by: session.userId,
+        }
+      : {}),
   });
   if (roleError) {
     return withError("Não foi possível definir o perfil do usuário como expositor.");
   }
 
+  const validatedAt = new Date().toISOString();
   const { error: linkError } = await admin.from("exhibitor_users").upsert(
     {
       user_id: authUser.id,
       exhibitor_company_id: parsed.data.exhibitorId,
+      status: "active",
+      access_validated_at: validatedAt,
+      access_valid_until: addDaysFromNow(30),
+      access_validated_by: session.userId,
+      emergency_access_until: null,
     },
-    { onConflict: "user_id,exhibitor_company_id", ignoreDuplicates: true }
+    { onConflict: "user_id,exhibitor_company_id" }
   );
   if (linkError) {
     return withError("Não foi possível vincular usuário ao expositor.");

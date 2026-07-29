@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/auth/session";
 import { formatDateOnly } from "@/lib/date-time";
 import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getActiveExhibitorCompanyIdsForUser } from "@/lib/exhibitors/access-status";
 import { CreateParticipantForm } from "@/app/(dashboard)/events/[eventId]/participants/create-participant-form";
 import {
   discloseParticipantData,
@@ -61,11 +62,7 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
     relationLabel = "Check-ins no stand";
     dayColumnLabel = "Dias com check-in no stand";
 
-    const { data: exhibitorUserRows } = await admin
-      .from("exhibitor_users")
-      .select("exhibitor_company_id")
-      .eq("user_id", session.userId);
-    const companyIds = [...new Set((exhibitorUserRows ?? []).map((item) => item.exhibitor_company_id))];
+    const companyIds = await getActiveExhibitorCompanyIdsForUser(admin, session.userId);
 
     const eventExhibitorIds =
       companyIds.length > 0

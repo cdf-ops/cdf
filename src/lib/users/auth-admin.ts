@@ -1,21 +1,12 @@
 import type { User } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { generateTemporaryPassword } from "@/lib/users/passwords";
 
 const DEFAULT_PER_PAGE = 200;
 const MAX_PAGES = 20;
 
 function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
-}
-
-function generateTemporaryPassword(length = 14) {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*";
-  let password = "";
-  for (let index = 0; index < length; index += 1) {
-    const randomIndex = Math.floor(Math.random() * alphabet.length);
-    password += alphabet[randomIndex];
-  }
-  return password;
 }
 
 export async function listAllAuthUsers() {

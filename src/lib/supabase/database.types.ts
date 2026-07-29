@@ -8,6 +8,9 @@ export type Database = {
           id: string;
           role: "super_adm" | "organizador" | "recepcao" | "expositor";
           status: "active" | "inactive";
+          password_change_required: boolean;
+          temporary_password_issued_at: string | null;
+          temporary_password_issued_by: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -15,6 +18,9 @@ export type Database = {
           id: string;
           role?: "super_adm" | "organizador" | "recepcao" | "expositor";
           status?: "active" | "inactive";
+          password_change_required?: boolean;
+          temporary_password_issued_at?: string | null;
+          temporary_password_issued_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -22,6 +28,9 @@ export type Database = {
           id?: string;
           role?: "super_adm" | "organizador" | "recepcao" | "expositor";
           status?: "active" | "inactive";
+          password_change_required?: boolean;
+          temporary_password_issued_at?: string | null;
+          temporary_password_issued_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -489,18 +498,33 @@ export type Database = {
           id: string;
           user_id: string;
           exhibitor_company_id: string;
+          status: "active" | "suspended";
+          access_validated_at: string;
+          access_valid_until: string;
+          access_validated_by: string | null;
+          emergency_access_until: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
           exhibitor_company_id: string;
+          status?: "active" | "suspended";
+          access_validated_at?: string;
+          access_valid_until?: string;
+          access_validated_by?: string | null;
+          emergency_access_until?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
           exhibitor_company_id?: string;
+          status?: "active" | "suspended";
+          access_validated_at?: string;
+          access_valid_until?: string;
+          access_validated_by?: string | null;
+          emergency_access_until?: string | null;
           created_at?: string;
         };
         Relationships: [];

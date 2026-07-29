@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getActiveExhibitorCompanyIdsForUser } from "@/lib/exhibitors/access-status";
 
 const standCheckinSchema = z.object({
   eventId: z.string().uuid(),
@@ -32,11 +33,7 @@ export async function registerStandCheckinAction(formData: FormData) {
   }
 
   const admin = createAdminClient();
-  const { data: exhibitorUserRows } = await admin
-    .from("exhibitor_users")
-    .select("exhibitor_company_id")
-    .eq("user_id", session.userId);
-  const companyIds = (exhibitorUserRows ?? []).map((item) => item.exhibitor_company_id);
+  const companyIds = await getActiveExhibitorCompanyIdsForUser(admin, session.userId);
 
   if (!companyIds.length) {
     redirect(withNotice(parsed.data.redirectUrl, "error", "Seu usuário não está vinculado a uma empresa expositora."));
@@ -102,4 +99,3 @@ export async function registerStandCheckinAction(formData: FormData) {
 
   redirect(withNotice(parsed.data.redirectUrl, "success", "Check-in do stand registrado com sucesso."));
 }
-

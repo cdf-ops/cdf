@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/auth/session";
 import { formatDateOnly, formatSaoPauloTime, getSaoPauloDateKey } from "@/lib/date-time";
 import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getActiveExhibitorCompanyIdsForUser } from "@/lib/exhibitors/access-status";
 import { registerStandCheckinAction } from "@/app/(dashboard)/events/[eventId]/checkin-expositor/actions";
 import { StandBadgeScanner } from "@/app/(dashboard)/events/[eventId]/checkin-expositor/stand-badge-scanner";
 import {
@@ -56,11 +57,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
 
   const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getDefaultDayId(eventDays);
 
-  const { data: exhibitorUserRows } = await admin
-    .from("exhibitor_users")
-    .select("exhibitor_company_id")
-    .eq("user_id", session.userId);
-  const companyIds = (exhibitorUserRows ?? []).map((item) => item.exhibitor_company_id);
+  const companyIds = await getActiveExhibitorCompanyIdsForUser(admin, session.userId);
 
   const eventExhibitor =
     companyIds.length > 0

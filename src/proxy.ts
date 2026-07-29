@@ -11,6 +11,8 @@ export async function proxy(request: NextRequest) {
       path.startsWith("/usuarios") ||
       path.startsWith("/participantes") ||
       path.startsWith("/integracoes") ||
+      path.startsWith("/alterar-senha") ||
+      path.startsWith("/renovar-acesso") ||
       path.startsWith("/q/")) &&
     !user
   ) {
@@ -30,5 +32,16 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/events/:path*", "/expositores/:path*", "/usuarios/:path*", "/participantes/:path*", "/integracoes/:path*", "/q/:path*", "/login"],
+  matcher: [
+    "/",
+    "/events/:path*",
+    "/expositores/:path*",
+    "/usuarios/:path*",
+    "/participantes/:path*",
+    "/integracoes/:path*",
+    "/alterar-senha",
+    "/renovar-acesso",
+    "/q/:path*",
+    "/login",
+  ],
 };

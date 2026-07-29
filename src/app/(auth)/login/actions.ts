@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isExhibitorAccessLinkActive } from "@/lib/exhibitors/access-status";
 
 const loginSchema = z.object({
   email: z.string().email("E-mail inválido."),
@@ -35,13 +36,39 @@ export async function loginAction(_: LoginState, formData: FormData): Promise<Lo
 
   if (data.user) {
     const admin = createAdminClient();
-    await admin.from("audit_logs").insert({
-      actor_user_id: data.user.id,
-      action: "AUTH_LOGIN",
-      context: {
-        email: data.user.email,
-      },
-    });
+    const [{ data: profile }] = await Promise.all([
+      admin
+        .from("user_profiles")
+        .select("role, status, password_change_required")
+        .eq("id", data.user.id)
+        .maybeSingle(),
+      admin.from("audit_logs").insert({
+        actor_user_id: data.user.id,
+        action: "AUTH_LOGIN",
+        context: {
+          email: data.user.email,
+        },
+      }),
+    ]);
+
+    if (!profile || profile.status !== "active") {
+      await supabase.auth.signOut({ scope: "local" });
+      return { error: "Este usuário está inativo. Procure a organização do evento." };
+    }
+
+    if (profile.password_change_required) {
+      redirect("/alterar-senha");
+    }
+
+    if (profile.role === "expositor") {
+      const { data: links } = await admin
+        .from("exhibitor_users")
+        .select("status, access_valid_until, emergency_access_until")
+        .eq("user_id", data.user.id);
+      if (!(links ?? []).some((link) => isExhibitorAccessLinkActive(link))) {
+        redirect("/renovar-acesso");
+      }
+    }
   }
 
   const safeNext = parsed.data.next?.startsWith("/") && !parsed.data.next.startsWith("//") ? parsed.data.next : "/events";

@@ -6,6 +6,7 @@ import {
   getExhibitorDataSettings,
 } from "@/lib/exhibitors/data-sharing";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getActiveExhibitorCompanyIdsForUser } from "@/lib/exhibitors/access-status";
 
 const requestSchema = z.object({
   eventDayId: z.string().uuid(),
@@ -32,7 +33,7 @@ export async function POST(
   }
 
   const admin = createAdminClient();
-  const [{ data: eventDay }, { data: badge }, { data: userLinks }] = await Promise.all([
+  const [{ data: eventDay }, { data: badge }, companyIds] = await Promise.all([
     admin
       .from("event_days")
       .select("id")
@@ -45,15 +46,11 @@ export async function POST(
       .eq("event_id", eventId)
       .eq("qr_slug", qrSlug)
       .maybeSingle(),
-    admin
-      .from("exhibitor_users")
-      .select("exhibitor_company_id")
-      .eq("user_id", session.userId),
+    getActiveExhibitorCompanyIdsForUser(admin, session.userId),
   ]);
   if (!eventDay) return Response.json({ error: "O dia selecionado não pertence a este evento." }, { status: 400 });
   if (!badge) return Response.json({ error: "Credencial não encontrada para este evento." }, { status: 404 });
 
-  const companyIds = [...new Set((userLinks ?? []).map((item) => item.exhibitor_company_id))];
   const { data: eventExhibitor } =
     companyIds.length > 0
       ? await admin

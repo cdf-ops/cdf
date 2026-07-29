@@ -14,7 +14,9 @@ export function CreateUserForm() {
   return (
     <form action={action} className="surface-card rounded-xl p-5">
       <h3 className="font-headline text-lg font-bold text-[var(--foreground)]">Novo Usuário</h3>
-      <p className="mt-1 text-sm text-muted">Crie usuário no Auth e defina o perfil de acesso.</p>
+      <p className="mt-1 text-sm text-muted">
+        Crie usuários administrativos ou de recepção. Expositores são cadastrados dentro da empresa.
+      </p>
 
       <div className="mt-4 grid gap-3 md:grid-cols-[1.4fr_0.8fr_auto]">
         <input
@@ -32,7 +34,6 @@ export function CreateUserForm() {
           <option value="super_adm">Super ADM</option>
           <option value="organizador">Organizador</option>
           <option value="recepcao">Recepção</option>
-          <option value="expositor">Expositor</option>
         </select>
         <button
           type="submit"

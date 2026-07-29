@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { loginAction, type LoginState } from "@/app/(auth)/login/actions";
 
 const INITIAL_STATE: LoginState = {
@@ -58,6 +59,9 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
       >
         {isPending ? "Entrando..." : "Entrar"}
       </button>
+      <Link href="/esqueci-senha" className="mt-5 block text-center text-sm font-semibold text-[var(--primary)]">
+        Esqueci minha senha
+      </Link>
     </form>
   );
 }

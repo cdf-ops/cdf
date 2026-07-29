@@ -1,16 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeEmail } from "@/lib/exhibitors/helpers";
-
-function generateTemporaryPassword(length = 14) {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*";
-  let password = "";
-  for (let index = 0; index < length; index += 1) {
-    const randomIndex = Math.floor(Math.random() * alphabet.length);
-    password += alphabet[randomIndex];
-  }
-  return password;
-}
+import { generateTemporaryPassword } from "@/lib/users/passwords";
 
 export async function findAuthUserByEmail(email: string) {
   const admin = createAdminClient();

@@ -7,6 +7,8 @@ import { requireSession } from "@/lib/auth/session";
 import { APP_ROLES, type AppRole } from "@/lib/auth/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createAuthUserByEmail, findAuthUserByEmail } from "@/lib/users/auth-admin";
+import { generateTemporaryPassword } from "@/lib/users/passwords";
+import { addHoursFromNow } from "@/lib/exhibitors/access-status";
 
 const createUserSchema = z.object({
   email: z.string().trim().email("E-mail inválido."),
@@ -24,10 +26,22 @@ export type CreateUserState = {
   success: string | null;
 };
 
+export type EmergencyResetState = {
+  error: string | null;
+  success: string | null;
+  temporaryPassword: string | null;
+};
+
 const INITIAL_STATE: CreateUserState = {
   error: null,
   success: null,
 };
+
+const emergencyResetSchema = z.object({
+  userId: z.string().uuid(),
+  reason: z.string().trim().min(5, "Informe o motivo da liberação.").max(300),
+  confirmed: z.literal("yes", "Confirme a identidade antes de gerar a senha."),
+});
 
 function withError(error: string): CreateUserState {
   return { ...INITIAL_STATE, error };
@@ -68,6 +82,9 @@ export async function createUserAction(_: CreateUserState, formData: FormData): 
     if (!parsed.success) {
       return withError(parsed.error.issues[0]?.message ?? "Dados inválidos para cadastro de usuário.");
     }
+    if (parsed.data.role === "expositor") {
+      return withError("Cadastre usuários expositores dentro dos detalhes da empresa expositora.");
+    }
 
     const admin = createAdminClient();
     const existingUser = await findAuthUserByEmail(parsed.data.email);
@@ -96,6 +113,13 @@ export async function createUserAction(_: CreateUserState, formData: FormData): 
       id: userId,
       role: parsed.data.role,
       status: "active",
+      ...(temporaryPassword
+        ? {
+            password_change_required: true,
+            temporary_password_issued_at: new Date().toISOString(),
+            temporary_password_issued_by: session.userId,
+          }
+        : {}),
     });
 
     if (profileError) {
@@ -128,6 +152,125 @@ export async function createUserAction(_: CreateUserState, formData: FormData): 
   }
 }
 
+export async function emergencyPasswordResetAction(
+  _: EmergencyResetState,
+  formData: FormData
+): Promise<EmergencyResetState> {
+  const session = await requireSession(["super_adm", "organizador"]);
+  const parsed = emergencyResetSchema.safeParse({
+    userId: formData.get("user_id"),
+    reason: formData.get("reason"),
+    confirmed: formData.get("confirmed"),
+  });
+  if (!parsed.success) {
+    return {
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos para o reset emergencial.",
+      success: null,
+      temporaryPassword: null,
+    };
+  }
+  if (parsed.data.userId === session.userId) {
+    return {
+      error: "Use a recuperação normal para alterar sua própria senha.",
+      success: null,
+      temporaryPassword: null,
+    };
+  }
+
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("user_profiles")
+    .select("role, status, password_change_required, temporary_password_issued_at, temporary_password_issued_by")
+    .eq("id", parsed.data.userId)
+    .maybeSingle();
+  if (!profile) {
+    return { error: "Usuário não encontrado.", success: null, temporaryPassword: null };
+  }
+  if (profile.status !== "active") {
+    return { error: "O usuário está inativo e não pode receber acesso temporário.", success: null, temporaryPassword: null };
+  }
+  if (
+    session.role === "organizador" &&
+    !["recepcao", "expositor"].includes(profile.role)
+  ) {
+    return {
+      error: "Organizadores só podem liberar usuários de Recepção e Expositores.",
+      success: null,
+      temporaryPassword: null,
+    };
+  }
+
+  const temporaryPassword = generateTemporaryPassword();
+  const now = new Date().toISOString();
+  const { error: profileError } = await admin
+    .from("user_profiles")
+    .update({
+      password_change_required: true,
+      temporary_password_issued_at: now,
+      temporary_password_issued_by: session.userId,
+    })
+    .eq("id", parsed.data.userId);
+  if (profileError) {
+    return {
+      error: "Não foi possível preparar a troca obrigatória de senha.",
+      success: null,
+      temporaryPassword: null,
+    };
+  }
+
+  const { error: passwordError } = await admin.auth.admin.updateUserById(parsed.data.userId, {
+    password: temporaryPassword,
+  });
+  if (passwordError) {
+    await admin
+      .from("user_profiles")
+      .update({
+        password_change_required: profile.password_change_required,
+        temporary_password_issued_at: profile.temporary_password_issued_at,
+        temporary_password_issued_by: profile.temporary_password_issued_by,
+      })
+      .eq("id", parsed.data.userId);
+    return {
+      error: "Não foi possível redefinir a senha no Supabase.",
+      success: null,
+      temporaryPassword: null,
+    };
+  }
+
+  let emergencyLinks = 0;
+  if (profile.role === "expositor") {
+    const { data: links } = await admin
+      .from("exhibitor_users")
+      .update({ emergency_access_until: addHoursFromNow(24) })
+      .eq("user_id", parsed.data.userId)
+      .eq("status", "active")
+      .select("id");
+    emergencyLinks = links?.length ?? 0;
+  }
+
+  await admin.from("audit_logs").insert({
+    actor_user_id: session.userId,
+    action: "EMERGENCY_PASSWORD_ISSUED",
+    context: {
+      target_user_id: parsed.data.userId,
+      target_role: profile.role,
+      reason: parsed.data.reason,
+      emergency_access_hours: profile.role === "expositor" ? 24 : null,
+      renewed_link_count: emergencyLinks,
+    },
+  });
+
+  revalidatePath("/usuarios");
+  return {
+    error: null,
+    success:
+      profile.role === "expositor"
+        ? "Senha gerada. O acesso emergencial da empresa ficará disponível por até 24 horas após a troca."
+        : "Senha temporária gerada. O usuário deverá substituí-la no primeiro acesso.",
+    temporaryPassword,
+  };
+}
+
 export async function updateUserProfileAction(formData: FormData) {
   const session = await requireSession(["super_adm"]);
   const parsed = updateUserProfileSchema.safeParse({
@@ -149,6 +292,22 @@ export async function updateUserProfileAction(formData: FormData) {
   }
 
   const admin = createAdminClient();
+  if (parsed.data.role === "expositor") {
+    const { count } = await admin
+      .from("exhibitor_users")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", parsed.data.userId);
+    if (!count) {
+      redirect(
+        withNotice(
+          "/usuarios",
+          "error",
+          "Vincule o usuário a uma empresa na tela de Expositores antes de definir esse perfil."
+        )
+      );
+    }
+  }
+
   const { error } = await admin.from("user_profiles").upsert({
     id: parsed.data.userId,
     role: parsed.data.role,
