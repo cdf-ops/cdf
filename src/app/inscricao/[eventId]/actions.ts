@@ -9,6 +9,10 @@ import { ensureParticipantBadge, getApplicationBaseUrl, getCredentialDownloadPat
 import { isValidBrazilianPhone } from "@/lib/domain/contacts";
 import { validateDocumentNumber } from "@/lib/domain/documents";
 import { dispatchConfiguredWebhook } from "@/lib/webhooks/dispatch";
+import {
+  EXHIBITOR_CONSENT_TEXT,
+  EXHIBITOR_CONSENT_VERSION,
+} from "@/lib/exhibitors/data-sharing";
 
 const allowedDocumentTypes = ["CPF", "RNE", "OUTRO"];
 
@@ -27,6 +31,7 @@ const registrationSchema = z.object({
   city: z.string().trim().min(2, "Cidade é obrigatória."),
   profession: z.string().trim().min(2, "Profissão é obrigatória."),
   selectedDays: z.array(z.string().uuid()).min(1, "Selecione ao menos um dia."),
+  exhibitorDataSharing: z.boolean(),
   website: z.string().trim().optional(),
 });
 
@@ -52,6 +57,7 @@ export async function submitPublicRegistration(
     city: formData.get("city"),
     profession: formData.get("profession"),
     selectedDays: selectedDaysRaw,
+    exhibitorDataSharing: formData.get("exhibitor_data_sharing") === "on",
     website: formData.get("website"),
   });
 
@@ -122,6 +128,21 @@ export async function submitPublicRegistration(
     });
     const credentialPath = getCredentialDownloadPath(badge.download_slug);
     const credentialUrl = `${getApplicationBaseUrl()}${credentialPath}`;
+    const { error: consentError } = await admin.from("participant_event_consents").upsert(
+      {
+        event_id: parsed.data.eventId,
+        participant_id: participantId,
+        exhibitor_data_sharing: parsed.data.exhibitorDataSharing,
+        consent_version: EXHIBITOR_CONSENT_VERSION,
+        consent_text: EXHIBITOR_CONSENT_TEXT,
+        source: "public_registration",
+        recorded_at: new Date().toISOString(),
+      },
+      { onConflict: "event_id,participant_id" }
+    );
+    if (consentError) {
+      throw new Error("Não foi possível registrar sua escolha de compartilhamento de dados.");
+    }
 
     const webhookPayload = {
       event_id: parsed.data.eventId,
@@ -132,6 +153,7 @@ export async function submitPublicRegistration(
       participant_email: parsed.data.email.toLowerCase(),
       intended_event_day_ids: parsed.data.selectedDays,
       credential_url: credentialUrl,
+      exhibitor_data_sharing_consent: parsed.data.exhibitorDataSharing,
     };
     await Promise.allSettled([
       dispatchConfiguredWebhook(admin, { eventType: "registration.completed", payload: webhookPayload }),
@@ -139,6 +161,19 @@ export async function submitPublicRegistration(
         ? [dispatchConfiguredWebhook(admin, { eventType: "credential.generated", payload: webhookPayload })]
         : []),
     ]);
+
+    await admin.from("audit_logs").insert({
+      actor_user_id: null,
+      action: "EXHIBITOR_DATA_CONSENT_RECORDED",
+      context: {
+        event_id: parsed.data.eventId,
+        participant_id: participantId,
+        participant_number: participantNumber,
+        granted: parsed.data.exhibitorDataSharing,
+        consent_version: EXHIBITOR_CONSENT_VERSION,
+        source: "public_registration",
+      },
+    });
 
     return {
       error: null,

@@ -5,6 +5,10 @@ import { formatDateOnly } from "@/lib/date-time";
 import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CreateParticipantForm } from "@/app/(dashboard)/events/[eventId]/participants/create-participant-form";
+import {
+  discloseParticipantData,
+  getExhibitorDataSettings,
+} from "@/lib/exhibitors/data-sharing";
 
 type ParticipantsPageProps = {
   params: Promise<{ eventId: string }>;
@@ -18,43 +22,12 @@ type ParticipantRow = {
   document: string;
   email: string;
   phone: string;
+  profession: string;
+  city: string;
+  state: string;
   days: string[];
+  consentGranted: boolean | null;
 };
-
-function maskEmail(value: string) {
-  const [localPart = "", domainPart = ""] = value.split("@");
-  if (!localPart || !domainPart) {
-    return "dado oculto";
-  }
-
-  const localVisible = localPart.slice(0, 3);
-  const localMask = "*".repeat(Math.max(localPart.length - localVisible.length, 2));
-
-  const compactDomain = domainPart.replaceAll(".", "");
-  const domainVisibleStart = compactDomain.slice(0, 3);
-  const domainVisibleEnd = compactDomain.slice(-2);
-  const domainMask = "*".repeat(Math.max(compactDomain.length - domainVisibleStart.length - domainVisibleEnd.length, 2));
-
-  return `${localVisible}${localMask}@${domainVisibleStart}${domainMask}${domainVisibleEnd}`;
-}
-
-function maskPhone(value: string) {
-  const digits = value.replace(/\D/g, "");
-  if (!digits) {
-    return "dado oculto";
-  }
-
-  let current = 0;
-  const total = digits.length;
-
-  return value.replace(/\d/g, () => {
-    current += 1;
-    if (current <= 2 || current > total - 2) {
-      return digits[current - 1];
-    }
-    return "*";
-  });
-}
 
 export default async function ParticipantsPage({ params, searchParams }: ParticipantsPageProps) {
   const session = await requireSession(["super_adm", "organizador", "recepcao", "expositor"]);
@@ -64,7 +37,8 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
   const participantNumberFilter = searchedParticipantNumber
     ? `participant_number.eq.${searchedParticipantNumber},`
     : "";
-  const shouldMaskSensitiveContact = session.role === "expositor";
+  const isExhibitor = session.role === "expositor";
+  const canViewConsent = session.role === "super_adm" || session.role === "organizador";
 
   const admin = createAdminClient();
   const { data: rawEventDays } = await admin
@@ -74,13 +48,16 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
     .order("date", { ascending: true });
   const eventDays = rawEventDays ?? [];
   const dayById = new Map(eventDays.map((day) => [day.id, day.date]));
-  const participantBaseQuery = "id, participant_number, full_name, document_type, document_number, email, phone";
+  const participantBaseQuery =
+    "id, participant_number, full_name, document_type, document_number, email, phone, profession, city, state";
+  const exhibitorParticipantQuery =
+    "id, participant_number, full_name, email, phone, profession, city, state";
   let rows: ParticipantRow[] = [];
   let relationCount = 0;
   let relationLabel = "Vínculos inscrição";
   let dayColumnLabel = "Dias Selecionados";
 
-  if (session.role === "expositor") {
+  if (isExhibitor) {
     relationLabel = "Check-ins no stand";
     dayColumnLabel = "Dias com check-in no stand";
 
@@ -123,24 +100,33 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
       id: string;
       participant_number: number;
       full_name: string;
-      document_type: string;
-      document_number: string;
       email: string;
       phone: string;
+      profession: string;
+      city: string;
+      state: string;
     }[] = [];
 
     if (participantIds.length) {
       const { data } = await admin
         .from("participants")
-        .select(participantBaseQuery)
-        .in("id", participantIds)
-        .or(
-          q
-            ? `${participantNumberFilter}full_name.ilike.%${q}%,document_number.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`
-            : "id.not.is.null"
-        );
+        .select(exhibitorParticipantQuery)
+        .in("id", participantIds);
       participants = data ?? [];
     }
+    const [{ data: consentRows }, exhibitorSettings] = await Promise.all([
+      participantIds.length
+        ? admin
+            .from("participant_event_consents")
+            .select("participant_id, exhibitor_data_sharing")
+            .eq("event_id", eventId)
+            .in("participant_id", participantIds)
+        : Promise.resolve({ data: [] }),
+      getExhibitorDataSettings(admin, eventId),
+    ]);
+    const consentMap = new Map(
+      (consentRows ?? []).map((item) => [item.participant_id, item.exhibitor_data_sharing])
+    );
 
     const participantDayMap = new Map<string, string[]>();
     standCheckins.forEach((checkin) => {
@@ -154,15 +140,34 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
     });
 
     rows = participants
-      .map((participant) => ({
-        participantId: participant.id,
-        participantNumber: participant.participant_number,
-        fullName: participant.full_name,
-        document: `${participant.document_type} ${participant.document_number}`,
-        email: participant.email,
-        phone: participant.phone,
-        days: participantDayMap.get(participant.id) ?? [],
-      }))
+      .map((participant) => {
+        const shared = discloseParticipantData(
+          participant,
+          exhibitorSettings,
+          consentMap.get(participant.id) === true
+        );
+        return {
+          participantId: participant.id,
+          participantNumber: shared?.participant_number ?? 0,
+          fullName: shared?.full_name ?? "Visita sem dados compartilhados",
+          document: "",
+          email: shared?.email ?? "",
+          phone: shared?.phone ?? "",
+          profession: shared?.profession ?? "",
+          city: shared?.city ?? "",
+          state: shared?.state ?? "",
+          days: participantDayMap.get(participant.id) ?? [],
+          consentGranted: Boolean(shared),
+        };
+      })
+      .filter((participant) => {
+        const search = q.trim().toLocaleLowerCase("pt-BR");
+        if (!search) return true;
+        return (
+          (participant.participantNumber > 0 && String(participant.participantNumber) === search) ||
+          (participant.consentGranted && participant.fullName.toLocaleLowerCase("pt-BR").includes(search))
+        );
+      })
       .sort((a, b) => {
         if (searchedParticipantNumber) {
           const aExact = a.participantNumber === searchedParticipantNumber ? 1 : 0;
@@ -195,6 +200,9 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
       document_number: string;
       email: string;
       phone: string;
+      profession: string;
+      city: string;
+      state: string;
     }[] = [];
 
     if (participantIds.length) {
@@ -209,6 +217,17 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
         );
       participants = data ?? [];
     }
+    const { data: consentRows } =
+      canViewConsent && participantIds.length > 0
+        ? await admin
+            .from("participant_event_consents")
+            .select("participant_id, exhibitor_data_sharing")
+            .eq("event_id", eventId)
+            .in("participant_id", participantIds)
+        : { data: [] };
+    const consentMap = new Map(
+      (consentRows ?? []).map((item) => [item.participant_id, item.exhibitor_data_sharing])
+    );
 
     const participantDayMap = new Map<string, string[]>();
     registrations.forEach((registration) => {
@@ -229,7 +248,11 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
         document: `${participant.document_type} ${participant.document_number}`,
         email: participant.email,
         phone: participant.phone,
+        profession: participant.profession,
+        city: participant.city,
+        state: participant.state,
         days: participantDayMap.get(participant.id) ?? [],
+        consentGranted: consentMap.get(participant.id) ?? false,
       }))
       .sort((a, b) => {
         if (searchedParticipantNumber) {
@@ -256,7 +279,7 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
             <input
               name="q"
               defaultValue={q}
-              placeholder="Pesquisar por número, nome, doc, e-mail ou telefone"
+              placeholder={isExhibitor ? "Pesquisar por número ou nome autorizado" : "Pesquisar por número, nome, doc, e-mail ou telefone"}
               className="w-full rounded-xl border border-[var(--outline-variant)]/50 bg-white px-4 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
             />
             <SubmitButton pendingLabel="Buscando..." className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white">
@@ -286,21 +309,55 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
               <tr>
                 <th className="px-4 py-3">Número</th>
                 <th className="px-4 py-3">Participante</th>
-                <th className="px-4 py-3">Documento</th>
-                <th className="px-4 py-3">Contato</th>
+                {!isExhibitor ? <th className="px-4 py-3">Documento</th> : null}
+                <th className="px-4 py-3">{isExhibitor ? "Dados autorizados" : "Contato"}</th>
+                {canViewConsent ? <th className="px-4 py-3">Consentimento expositor</th> : null}
                 <th className="px-4 py-3">{dayColumnLabel}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--surface-container)]">
               {rows.map((row) => (
                 <tr key={row.participantId} className="hover:bg-[var(--surface-container-low)]/70">
-                  <td className="px-4 py-3 font-mono text-lg font-black text-[var(--primary)]">{row.participantNumber}</td>
-                  <td className="px-4 py-3 font-semibold">{row.fullName}</td>
-                  <td className="px-4 py-3">{row.document}</td>
-                  <td className="px-4 py-3">
-                    <p>{shouldMaskSensitiveContact ? maskEmail(row.email) : row.email}</p>
-                    <p className="text-xs text-muted">{shouldMaskSensitiveContact ? maskPhone(row.phone) : row.phone}</p>
+                  <td className="px-4 py-3 font-mono text-lg font-black text-[var(--primary)]">
+                    {row.participantNumber || "—"}
                   </td>
+                  <td className="px-4 py-3 font-semibold">{row.fullName}</td>
+                  {!isExhibitor ? <td className="px-4 py-3">{row.document}</td> : null}
+                  <td className="px-4 py-3">
+                    {isExhibitor ? (
+                      row.consentGranted ? (
+                        <div className="space-y-0.5">
+                          {row.email ? <p>{row.email}</p> : null}
+                          {row.phone ? <p>{row.phone}</p> : null}
+                          {row.profession ? <p>{row.profession}</p> : null}
+                          {row.city || row.state ? <p>{[row.city, row.state].filter(Boolean).join(" / ")}</p> : null}
+                          {!row.email && !row.phone && !row.profession && !row.city && !row.state ? (
+                            <p className="text-xs text-muted">Somente nome e número liberados</p>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-muted">Não autorizado</span>
+                      )
+                    ) : (
+                      <>
+                        <p>{row.email}</p>
+                        <p className="text-xs text-muted">{row.phone}</p>
+                      </>
+                    )}
+                  </td>
+                  {canViewConsent ? (
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${
+                          row.consentGranted
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
+                        {row.consentGranted ? "Autorizado" : "Não autorizado"}
+                      </span>
+                    </td>
+                  ) : null}
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1.5">
                       {row.days.map((day) => (
@@ -314,7 +371,10 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
               ))}
               {!rows.length ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-muted">
+                  <td
+                    colSpan={isExhibitor ? 4 : canViewConsent ? 6 : 5}
+                    className="px-4 py-6 text-center text-sm text-muted"
+                  >
                     Nenhum participante encontrado.
                   </td>
                 </tr>

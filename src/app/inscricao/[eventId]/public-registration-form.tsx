@@ -8,6 +8,7 @@ import {
 import { formatDateOnly } from "@/lib/date-time";
 import { isValidBrazilianPhone } from "@/lib/domain/contacts";
 import { isValidCpf } from "@/lib/domain/documents";
+import { EXHIBITOR_CONSENT_TEXT } from "@/lib/exhibitors/data-sharing";
 
 type PublicRegistrationFormProps = {
   eventId: string;
@@ -133,6 +134,7 @@ export function PublicRegistrationForm({ eventId, eventDays, embedded = false }:
   const [values, setValues] = useState<RegistrationFormValues>(EMPTY_FORM_VALUES);
   const [touched, setTouched] = useState<Partial<Record<FormField, boolean>>>({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [exhibitorDataSharing, setExhibitorDataSharing] = useState(true);
   const formRef = useRef<HTMLFormElement>(null);
   const registrationAction = useCallback(
     async (previousState: PublicRegistrationState, formData: FormData) => {
@@ -142,6 +144,7 @@ export function PublicRegistrationForm({ eventId, eventDays, embedded = false }:
         setValues(EMPTY_FORM_VALUES);
         setTouched({});
         setSubmitAttempted(false);
+        setExhibitorDataSharing(true);
         formRef.current?.reset();
       }
       return nextState;
@@ -423,11 +426,30 @@ export function PublicRegistrationForm({ eventId, eventDays, embedded = false }:
         ) : null}
       </fieldset>
 
-      <p className="mt-5 rounded-xl border border-[var(--outline-variant)]/35 bg-[var(--surface-container-low)] p-4 text-xs leading-5 text-muted">
-        Ao concluir a inscrição, você concorda com o uso dos dados informados para a gestão deste evento,
-        incluindo comunicação, credenciamento e controle de participação. Seus dados serão tratados de forma
-        restrita a essas finalidades.
-      </p>
+      <div className="mt-5 space-y-3">
+        <p className="rounded-xl border border-[var(--outline-variant)]/35 bg-[var(--surface-container-low)] p-4 text-xs leading-5 text-muted">
+          Ao concluir a inscrição, seus dados serão utilizados pela organização para gestão do evento,
+          comunicação, credenciamento e controle de participação.
+        </p>
+        <label className="flex items-start gap-3 rounded-xl border border-[var(--primary)]/25 bg-[var(--primary-soft)]/20 p-4">
+          <input
+            type="checkbox"
+            name="exhibitor_data_sharing"
+            checked={exhibitorDataSharing}
+            onChange={(event) => setExhibitorDataSharing(event.target.checked)}
+            className="mt-1 h-5 w-5 shrink-0 accent-[var(--primary)]"
+          />
+          <span>
+            <span className="block text-sm font-bold text-[var(--foreground)]">
+              Compartilhamento com expositores
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-muted">{EXHIBITOR_CONSENT_TEXT}</span>
+            <span className="mt-2 block text-xs font-semibold text-[var(--foreground)]">
+              Esta escolha é opcional e não interfere na sua inscrição ou entrada no evento.
+            </span>
+          </span>
+        </label>
+      </div>
 
       {state.error ? (
         <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-[var(--danger)]">{state.error}</p>
