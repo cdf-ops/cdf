@@ -9,54 +9,62 @@ type RaffleStageProps = {
   eventDayId: string;
   eventName: string;
   eventDate: string;
-  eligibleCount: number;
 };
 
 type Stage = "setup" | "countdown" | "drawing" | "result";
 
-export function RaffleStage({ eventId, eventDayId, eventName, eventDate, eligibleCount }: RaffleStageProps) {
+const COUNTDOWN_SECONDS = 2;
+
+export function RaffleStage({ eventId, eventDayId, eventName, eventDate }: RaffleStageProps) {
   const [stage, setStage] = useState<Stage>("setup");
   const [winnersCount, setWinnersCount] = useState(1);
   const [includePreviousWinners, setIncludePreviousWinners] = useState(false);
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [result, setResult] = useState<RaffleRoundResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  function waitForCountdown() {
+    return new Promise<void>((resolve) => {
+      let nextCount = COUNTDOWN_SECONDS;
+      const timer = window.setInterval(() => {
+        nextCount -= 1;
+        if (nextCount <= 0) {
+          window.clearInterval(timer);
+          resolve();
+          return;
+        }
+        setCountdown(nextCount);
+      }, 1000);
+    });
+  }
+
   function runDraw() {
     setError(null);
     setResult(null);
-    setCountdown(5);
+    setCountdown(COUNTDOWN_SECONDS);
     setStage("countdown");
 
-    let nextCount = 5;
-    const timer = window.setInterval(() => {
-      nextCount -= 1;
-      if (nextCount <= 0) {
-        window.clearInterval(timer);
-        setStage("drawing");
-        startTransition(async () => {
-          const response = await executeRaffleRoundAction({
-            eventId,
-            eventDayId,
-            winnersCount,
-            includePreviousWinners,
-          });
+    startTransition(async () => {
+      const drawPromise = executeRaffleRoundAction({
+        eventId,
+        eventDayId,
+        winnersCount,
+        includePreviousWinners,
+      });
+      await waitForCountdown();
+      setStage("drawing");
+      const response = await drawPromise;
 
-          if (!response.ok) {
-            setError(response.error);
-            setStage("setup");
-            return;
-          }
-
-          setResult(response.result);
-          setStage("result");
-        });
+      if (!response.ok) {
+        setError(response.error);
+        setStage("setup");
         return;
       }
 
-      setCountdown(nextCount);
-    }, 1000);
+      setResult(response.result);
+      setStage("result");
+    });
   }
 
   function resetRound() {
@@ -70,15 +78,12 @@ export function RaffleStage({ eventId, eventDayId, eventName, eventDate, eligibl
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(0,94,164,0.12),transparent_34%),radial-gradient(circle_at_88%_28%,rgba(0,106,98,0.18),transparent_38%)]" />
 
       <section className="relative mx-auto flex min-h-[calc(100vh-40px)] w-full max-w-7xl flex-col rounded-2xl bg-white/62 p-5 shadow-[0_28px_80px_-44px_rgba(0,96,168,0.55)] backdrop-blur-sm md:min-h-[calc(100vh-64px)] md:p-8">
-        <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <header>
           <div>
             <p className="font-headline text-3xl font-extrabold tracking-tight text-[var(--primary)] md:text-5xl">CLUBE DO FRIO</p>
             <p className="mt-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--outline)]">
               {eventName} | {new Date(`${eventDate}T12:00:00`).toLocaleDateString("pt-BR")}
             </p>
-          </div>
-          <div className="w-fit rounded-full bg-[var(--secondary-soft)]/85 px-5 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[var(--secondary)]">
-            {eligibleCount.toLocaleString("pt-BR")} participantes aptos
           </div>
         </header>
 
@@ -118,7 +123,7 @@ export function RaffleStage({ eventId, eventDayId, eventName, eventDate, eligibl
               <button
                 type="button"
                 onClick={runDraw}
-                disabled={isPending || !eligibleCount}
+                disabled={isPending}
                 className="gradient-primary mt-6 h-14 w-full rounded-xl px-5 text-base font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Sortear

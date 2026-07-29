@@ -31,13 +31,7 @@ export default async function RaffleTeleprompterPage({ params, searchParams }: R
   const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getDefaultDayId(eventDays);
   const selectedDay = eventDays.find((item) => item.id === selectedDayId);
 
-  const [{ data: event }, { data: entryCheckinsData }] = await Promise.all([
-    admin.from("events").select("name").eq("id", eventId).maybeSingle(),
-    selectedDayId
-      ? admin.from("entry_checkins").select("participant_id").eq("event_day_id", selectedDayId).is("deleted_at", null)
-      : Promise.resolve({ data: [] as { participant_id: string }[] }),
-  ]);
-  const eligibleCount = [...new Set((entryCheckinsData ?? []).map((item) => item.participant_id))].length;
+  const { data: event } = await admin.from("events").select("name").eq("id", eventId).maybeSingle();
 
   if (!selectedDayId || !selectedDay) {
     return (
@@ -56,7 +50,6 @@ export default async function RaffleTeleprompterPage({ params, searchParams }: R
       eventDayId={selectedDayId}
       eventName={event?.name ?? "Evento"}
       eventDate={selectedDay.date}
-      eligibleCount={eligibleCount}
     />
   );
 }
