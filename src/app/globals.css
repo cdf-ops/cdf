@@ -34,6 +34,23 @@ body {
   font-family: var(--font-inter), sans-serif;
 }
 
+html {
+  scroll-padding-top: 5rem;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 45%, transparent);
+  outline-offset: 2px;
+}
+
 .surface-card {
   background: var(--surface-container-lowest);
   border: 1px solid var(--surface-card-border);

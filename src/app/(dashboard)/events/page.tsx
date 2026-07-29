@@ -59,6 +59,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     session.role === "super_adm"
       ? [...STATUS_OPTIONS, { label: "Arquivado", value: "arquivado" } as const]
       : STATUS_OPTIONS;
+  const canManageEvents = ["super_adm", "organizador"].includes(session.role);
 
   const supabase = await createClient();
   let query = supabase
@@ -80,18 +81,24 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
   return (
     <section>
-      <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:mb-10 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="font-headline text-4xl font-extrabold tracking-tight text-[var(--foreground)]">Eventos</h1>
-          <p className="mt-2 text-lg text-muted">Gerencie seus eventos e acompanhe o progresso de cada um.</p>
+          <h1 className="font-headline text-3xl font-extrabold tracking-tight text-[var(--foreground)] sm:text-4xl">Eventos</h1>
+          <p className="mt-2 text-base text-muted sm:text-lg">
+            {canManageEvents
+              ? "Gerencie seus eventos e acompanhe o progresso de cada um."
+              : "Escolha um evento para iniciar seu trabalho."}
+          </p>
         </div>
-        <Link
-          href="/events/new"
-          className="gradient-primary inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white shadow"
-        >
-          <span className="text-base leading-none">＋</span>
-          Novo Evento
-        </Link>
+        {canManageEvents ? (
+          <Link
+            href="/events/new"
+            className="gradient-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white shadow"
+          >
+            <span className="text-base leading-none">＋</span>
+            Novo Evento
+          </Link>
+        ) : null}
       </div>
 
       {params.notice ? (
@@ -132,7 +139,53 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
         </div>
       </form>
 
-      <div className="surface-card overflow-hidden rounded-xl">
+      <div className="grid gap-3 md:hidden">
+        {events.map((event) => {
+          const dateList = (event.event_days ?? []).map((item) => item.date);
+          const entryHref =
+            session.role === "recepcao"
+              ? `/events/${event.id}/checkin-recepcao`
+              : session.role === "expositor"
+                ? `/events/${event.id}/checkin-expositor`
+                : `/events/${event.id}/settings`;
+
+          return (
+            <article key={event.id} className="surface-card rounded-2xl p-4">
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="min-w-0 font-headline text-lg font-extrabold leading-snug text-[var(--foreground)]">
+                  {event.name}
+                </h2>
+                <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${statusBadgeClass(event.status)}`}>
+                  {event.status}
+                </span>
+              </div>
+              <dl className="mt-4 grid gap-3 text-sm">
+                <div>
+                  <dt className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--outline)]">Datas</dt>
+                  <dd className="mt-1 font-semibold text-[var(--foreground)]">{formatDateRange(dateList)}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--outline)]">Local</dt>
+                  <dd className="mt-1 text-muted">{event.location || "Local ainda não informado"}</dd>
+                </div>
+              </dl>
+              <Link
+                href={entryHref}
+                className="gradient-primary mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl px-4 text-base font-bold text-white shadow-sm"
+              >
+                Entrar no evento
+              </Link>
+            </article>
+          );
+        })}
+        {!events.length ? (
+          <div className="surface-card rounded-2xl px-5 py-10 text-center text-sm text-muted">
+            Nenhum evento encontrado com os filtros atuais.
+          </div>
+        ) : null}
+      </div>
+
+      <div className="surface-card hidden overflow-hidden rounded-xl md:block">
         <table className="w-full border-collapse text-left">
           <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
             <tr>
@@ -186,27 +239,29 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
         </table>
       </div>
 
-      <div className="mt-8 grid gap-4 md:grid-cols-3">
-        <div className="gradient-primary rounded-2xl p-6 text-white md:col-span-2">
-          <p className="font-headline text-3xl font-extrabold tracking-tight">Expanda seu impacto</p>
-          <p className="mt-2 max-w-xl text-sm text-white/90">
-            Crie um novo evento e gerencie inscricoes, certificados e check-ins com a mesma base de operacao.
-          </p>
-          <Link
-            href="/events/new"
-            className="mt-5 inline-flex rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[var(--primary)]"
-          >
-            Criar Novo Evento
-          </Link>
+      {canManageEvents ? (
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className="gradient-primary rounded-2xl p-6 text-white md:col-span-2">
+            <p className="font-headline text-3xl font-extrabold tracking-tight">Expanda seu impacto</p>
+            <p className="mt-2 max-w-xl text-sm text-white/90">
+              Crie um novo evento e gerencie inscricoes, certificados e check-ins com a mesma base de operacao.
+            </p>
+            <Link
+              href="/events/new"
+              className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-white px-4 text-sm font-semibold text-[var(--primary)]"
+            >
+              Criar Novo Evento
+            </Link>
+          </div>
+          <div className="surface-card rounded-2xl p-6">
+            <p className="font-headline text-2xl font-bold tracking-tight text-[var(--foreground)]">Relatorios Globais</p>
+            <p className="mt-2 text-sm text-muted">Visualize o desempenho consolidado dos eventos.</p>
+            <Link href="/events" className="mt-5 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--primary)]">
+              Ver estatisticas
+            </Link>
+          </div>
         </div>
-        <div className="surface-card rounded-2xl p-6">
-          <p className="font-headline text-2xl font-bold tracking-tight text-[var(--foreground)]">Relatorios Globais</p>
-          <p className="mt-2 text-sm text-muted">Visualize o desempenho consolidado dos eventos.</p>
-          <Link href="/events" className="mt-5 inline-flex text-sm font-semibold text-[var(--primary)]">
-            Ver estatisticas
-          </Link>
-        </div>
-      </div>
+      ) : null}
     </section>
   );
 }

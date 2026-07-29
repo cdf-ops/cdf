@@ -197,13 +197,13 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
     <section className="space-y-6">
       <form className="grid gap-4 xl:grid-cols-[2fr_1fr]">
         <input type="hidden" name="q" value={q} />
-        <div className="gradient-primary relative overflow-hidden rounded-2xl p-6 text-white">
+        <div className="gradient-primary relative overflow-hidden rounded-2xl p-5 text-white sm:p-6">
           <div className="absolute -right-6 -bottom-6 text-[180px] font-headline font-extrabold text-white/10">*</div>
-          <p className="font-headline text-3xl font-extrabold tracking-tight">Monitoramento em Tempo Real</p>
+          <p className="font-headline text-2xl font-extrabold tracking-tight sm:text-3xl">Monitoramento em Tempo Real</p>
           <p className="mt-1 text-sm text-white/85">Contagem oficial de participantes presentes no recinto</p>
-          <div className="mt-5 flex items-end gap-3">
-            <span className="font-headline text-6xl font-extrabold leading-none">{presentParticipants}</span>
-            <span className="pb-1 text-3xl font-medium text-white/85">/ {expectedParticipants} esperados</span>
+          <div className="mt-5 flex flex-wrap items-end gap-x-3 gap-y-1">
+            <span className="font-headline text-5xl font-extrabold leading-none sm:text-6xl">{presentParticipants}</span>
+            <span className="pb-1 text-xl font-medium text-white/85 sm:text-3xl">/ {expectedParticipants} esperados</span>
           </div>
           <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/20">
             <div
@@ -236,7 +236,9 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
       </form>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <h2 className="font-headline text-4xl font-extrabold tracking-tight text-[var(--foreground)]">Últimos Registros</h2>
+        <h2 className="font-headline text-3xl font-extrabold tracking-tight text-[var(--foreground)] sm:text-4xl">
+          Últimos Registros
+        </h2>
 
         <form className="w-full md:max-w-sm">
           <input type="hidden" name="day" value={selectedDayId} />
@@ -250,13 +252,14 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
       </div>
 
       <div className="surface-card overflow-hidden rounded-xl">
-        <div className="flex flex-wrap items-end gap-3 bg-[var(--surface-container-low)] px-4 py-3">
-          <div>
+        <form className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 bg-[var(--surface-container-low)] px-4 py-3 sm:flex sm:flex-wrap">
+          <input type="hidden" name="q" value={q} />
+          <div className="min-w-0">
             <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Dia do Evento</label>
             <select
               name="day"
               defaultValue={selectedDayId}
-              className="mt-1 block rounded-lg bg-[var(--surface-container-lowest)] px-3 py-2 text-sm font-semibold outline-none"
+              className="mt-1 block min-h-11 w-full rounded-lg bg-[var(--surface-container-lowest)] px-3 text-sm font-semibold outline-none"
             >
               {eventDays.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -265,12 +268,65 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
               ))}
             </select>
           </div>
-          <button className="ghost-border rounded-lg bg-[var(--surface-container-lowest)] px-4 py-2 text-sm font-semibold text-[var(--foreground)]">
+          <button className="ghost-border min-h-11 rounded-lg bg-[var(--surface-container-lowest)] px-4 text-sm font-semibold text-[var(--foreground)]">
             Trocar dia
           </button>
+        </form>
+
+        <div className="divide-y divide-[var(--surface-container)] md:hidden">
+          {filteredRows.slice(0, 100).map((row) => {
+            const participant = participantMap.get(row.participantId);
+            return (
+              <article key={row.id} className="p-4">
+                <div className="flex items-start gap-3">
+                  <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--surface-container-low)] text-sm font-bold text-[var(--primary)]">
+                    {getInitials(participant?.full_name)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="break-words font-bold text-[var(--foreground)]">
+                          {participant?.full_name ?? "Participante"}
+                        </p>
+                        <p className="mt-0.5 font-mono text-lg font-black text-[var(--primary)]">
+                          {participant?.participant_number ?? "-"}
+                        </p>
+                      </div>
+                      <time className="shrink-0 text-sm font-bold text-[var(--foreground)]">
+                        {new Date(row.checkedAt).toLocaleTimeString("pt-BR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </time>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-1 text-xs font-bold ${
+                          row.kind === "Incluído na Hora"
+                            ? "bg-blue-100 text-blue-700"
+                            : row.kind === "Stand"
+                              ? "bg-violet-100 text-violet-700"
+                              : "bg-emerald-100 text-emerald-700"
+                        }`}
+                      >
+                        {row.kind}
+                      </span>
+                      <span className="text-xs text-muted">{row.context}</span>
+                    </div>
+                    <p className="mt-2 text-xs text-muted">
+                      {participant ? `${participant.document_type} ${participant.document_number}` : "Documento não informado"}
+                    </p>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+          {!filteredRows.length ? (
+            <p className="px-4 py-8 text-center text-sm text-muted">Nenhum registro encontrado para esse filtro.</p>
+          ) : null}
         </div>
 
-        <table className="w-full border-collapse text-left text-sm">
+        <table className="hidden w-full border-collapse text-left text-sm md:table">
           <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
             <tr>
               <th className="px-4 py-3">Participante</th>
@@ -333,7 +389,7 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
           </tbody>
         </table>
 
-        <div className="flex items-center justify-between bg-[var(--surface-container-low)] px-4 py-3 text-xs text-muted">
+        <div className="flex flex-col gap-1 bg-[var(--surface-container-low)] px-4 py-3 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
           <span>
             Exibindo {Math.min(100, filteredRows.length)} de {rows.length} check-ins
           </span>
