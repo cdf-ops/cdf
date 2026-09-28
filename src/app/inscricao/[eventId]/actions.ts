@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerParticipantInEventDays } from "@/lib/domain/registrations";
 import { ensureParticipantBadge, getApplicationBaseUrl, getCredentialDownloadPath } from "@/lib/badges/tokens";
+import { enqueueRegistrationConfirmation } from "@/lib/brevo/email-jobs";
 import { isValidBrazilianPhone } from "@/lib/domain/contacts";
 import { validateDocumentNumber } from "@/lib/domain/documents";
 import { dispatchConfiguredWebhook } from "@/lib/webhooks/dispatch";
@@ -155,6 +156,31 @@ export async function submitPublicRegistration(
       credential_url: credentialUrl,
       exhibitor_data_sharing_consent: parsed.data.exhibitorDataSharing,
     };
+
+    try {
+      await enqueueRegistrationConfirmation(admin, {
+        eventId: parsed.data.eventId,
+        participantId,
+        participantNumber,
+        fullName: parsed.data.fullName,
+        email: parsed.data.email,
+        city: parsed.data.city,
+        state: parsed.data.state,
+        profession: parsed.data.profession,
+      });
+    } catch (error) {
+      await admin.from("audit_logs").insert({
+        actor_user_id: null,
+        action: "EMAIL_DELIVERY_ENQUEUE_FAILED",
+        context: {
+          event_id: parsed.data.eventId,
+          participant_id: participantId,
+          communication_type: "registration_confirmation",
+          error: error instanceof Error ? error.message.slice(0, 240) : "unknown",
+        },
+      });
+    }
+
     await Promise.allSettled([
       dispatchConfiguredWebhook(admin, { eventType: "registration.completed", payload: webhookPayload }),
       ...(badge.created

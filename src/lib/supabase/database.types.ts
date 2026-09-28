@@ -3,6 +3,146 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      brevo_templates: {
+        Row: {
+          template_id: number;
+          name: string;
+          subject: string;
+          sender_name: string | null;
+          sender_email: string | null;
+          reply_to: string | null;
+          tag: string | null;
+          is_active: boolean;
+          brevo_created_at: string | null;
+          brevo_modified_at: string | null;
+          synced_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          template_id: number;
+          name: string;
+          subject: string;
+          sender_name?: string | null;
+          sender_email?: string | null;
+          reply_to?: string | null;
+          tag?: string | null;
+          is_active?: boolean;
+          brevo_created_at?: string | null;
+          brevo_modified_at?: string | null;
+          synced_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          template_id?: number;
+          name?: string;
+          subject?: string;
+          sender_name?: string | null;
+          sender_email?: string | null;
+          reply_to?: string | null;
+          tag?: string | null;
+          is_active?: boolean;
+          brevo_created_at?: string | null;
+          brevo_modified_at?: string | null;
+          synced_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      email_delivery_jobs: {
+        Row: {
+          id: string;
+          event_id: string;
+          participant_id: string;
+          communication_type: "registration_confirmation";
+          recipient_email: string;
+          template_id: number;
+          contact_attributes: Json;
+          idempotency_key: string;
+          status:
+            | "pending"
+            | "processing"
+            | "accepted"
+            | "delivered"
+            | "retryable_failed"
+            | "permanent_failed"
+            | "cancelled";
+          attempt_count: number;
+          next_attempt_at: string | null;
+          locked_at: string | null;
+          locked_by: string | null;
+          brevo_contact_id: number | null;
+          brevo_message_id: string | null;
+          last_error_code: string | null;
+          last_error_message: string | null;
+          processing_started_at: string | null;
+          accepted_at: string | null;
+          delivered_at: string | null;
+          failed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          participant_id: string;
+          communication_type?: "registration_confirmation";
+          recipient_email: string;
+          template_id: number;
+          contact_attributes?: Json;
+          idempotency_key: string;
+          status?:
+            | "pending"
+            | "processing"
+            | "accepted"
+            | "delivered"
+            | "retryable_failed"
+            | "permanent_failed"
+            | "cancelled";
+          attempt_count?: number;
+          next_attempt_at?: string | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          brevo_contact_id?: number | null;
+          brevo_message_id?: string | null;
+          last_error_code?: string | null;
+          last_error_message?: string | null;
+          processing_started_at?: string | null;
+          accepted_at?: string | null;
+          delivered_at?: string | null;
+          failed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["email_delivery_jobs"]["Insert"]>;
+        Relationships: [];
+      };
+      email_delivery_events: {
+        Row: {
+          id: string;
+          job_id: string | null;
+          brevo_message_id: string;
+          event_type: string;
+          deduplication_key: string;
+          occurred_at: string | null;
+          payload: Json;
+          received_at: string;
+        };
+        Insert: {
+          id?: string;
+          job_id?: string | null;
+          brevo_message_id: string;
+          event_type: string;
+          deduplication_key: string;
+          occurred_at?: string | null;
+          payload: Json;
+          received_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["email_delivery_events"]["Insert"]>;
+        Relationships: [];
+      };
       user_profiles: {
         Row: {
           id: string;
@@ -105,6 +245,33 @@ export type Database = {
           background_path?: string | null;
           sponsor_image_path?: string | null;
           layout?: Json;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      event_brevo_settings: {
+        Row: {
+          event_id: string;
+          registration_confirmation_enabled: boolean;
+          registration_template_id: number | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          event_id: string;
+          registration_confirmation_enabled?: boolean;
+          registration_template_id?: number | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          event_id?: string;
+          registration_confirmation_enabled?: boolean;
+          registration_template_id?: number | null;
           updated_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -840,6 +1007,63 @@ export type Database = {
           p_window_seconds?: number;
         };
         Returns: boolean;
+      };
+      claim_email_delivery_jobs: {
+        Args: {
+          p_worker_id: string;
+          p_limit?: number;
+          p_lock_seconds?: number;
+        };
+        Returns: {
+          job_id: string;
+          event_id: string;
+          participant_id: string;
+          recipient_email: string;
+          template_id: number;
+          contact_attributes: Json;
+          attempt_number: number;
+        }[];
+      };
+      complete_email_delivery_job: {
+        Args: {
+          p_job_id: string;
+          p_worker_id: string;
+          p_outcome: string;
+          p_n8n_execution_id?: string | null;
+          p_brevo_contact_id?: number | null;
+          p_brevo_message_id?: string | null;
+          p_response_status?: number | null;
+          p_error_code?: string | null;
+          p_error_message?: string | null;
+          p_retry_at?: string | null;
+        };
+        Returns: string;
+      };
+      enqueue_registration_confirmation: {
+        Args: {
+          p_event_id: string;
+          p_participant_id: string;
+          p_recipient_email: string;
+          p_contact_attributes: Json;
+        };
+        Returns: string | null;
+      };
+      sync_brevo_templates: {
+        Args: {
+          p_templates: Json;
+          p_deactivate_missing?: boolean;
+        };
+        Returns: number;
+      };
+      record_brevo_delivery_event: {
+        Args: {
+          p_message_id: string;
+          p_event_type: string;
+          p_deduplication_key: string;
+          p_occurred_at: string | null;
+          p_payload: Json;
+        };
+        Returns: string;
       };
       list_global_participants: {
         Args: {
