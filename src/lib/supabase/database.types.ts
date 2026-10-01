@@ -256,6 +256,9 @@ export type Database = {
           event_id: string;
           registration_confirmation_enabled: boolean;
           registration_template_id: number | null;
+          brevo_list_id: number | null;
+          brevo_list_name: string | null;
+          brevo_list_synced_at: string | null;
           updated_by: string | null;
           created_at: string;
           updated_at: string;
@@ -264,6 +267,9 @@ export type Database = {
           event_id: string;
           registration_confirmation_enabled?: boolean;
           registration_template_id?: number | null;
+          brevo_list_id?: number | null;
+          brevo_list_name?: string | null;
+          brevo_list_synced_at?: string | null;
           updated_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -272,6 +278,9 @@ export type Database = {
           event_id?: string;
           registration_confirmation_enabled?: boolean;
           registration_template_id?: number | null;
+          brevo_list_id?: number | null;
+          brevo_list_name?: string | null;
+          brevo_list_synced_at?: string | null;
           updated_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -1017,6 +1026,8 @@ export type Database = {
         Returns: {
           job_id: string;
           event_id: string;
+          event_name: string;
+          brevo_list_id: number;
           participant_id: string;
           recipient_email: string;
           template_id: number;

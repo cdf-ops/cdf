@@ -50,7 +50,9 @@ export default async function EventBrevoPage({ params, searchParams }: EventBrev
     admin.from("events").select("id, name").eq("id", eventId).maybeSingle(),
     admin
       .from("event_brevo_settings")
-      .select("registration_confirmation_enabled, registration_template_id, updated_at")
+      .select(
+        "registration_confirmation_enabled, registration_template_id, brevo_list_id, brevo_list_name, brevo_list_synced_at, updated_at"
+      )
       .eq("event_id", eventId)
       .maybeSingle(),
     admin
@@ -214,6 +216,21 @@ export default async function EventBrevoPage({ params, searchParams }: EventBrev
               </div>
             </dl>
           ) : null}
+
+          <div className="rounded-xl border border-[var(--outline-variant)]/45 bg-[var(--surface-container-lowest)] p-4 text-sm">
+            <p className="font-bold text-[var(--foreground)]">Lista automática de participantes</p>
+            {settings?.brevo_list_id ? (
+              <p className="mt-1 text-muted">
+                Cada inscrição será associada à lista <strong>{settings.brevo_list_name}</strong> na Brevo
+                {` (#${settings.brevo_list_id})`}.
+              </p>
+            ) : (
+              <p className="mt-1 text-muted">
+                Ao habilitar e salvar, a plataforma criará ou reutilizará automaticamente uma lista chamada
+                <strong> {eventResult.data.name}</strong> na Brevo.
+              </p>
+            )}
+          </div>
 
           <SubmitButton
             pendingLabel="Salvando..."

@@ -90,6 +90,7 @@ Fluxo sugerido:
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `N8N_INTERNAL_API_SECRET` (segredo aleatório com pelo menos 32 caracteres)
    - `N8N_BREVO_TEMPLATE_CATALOG_URL` (URL de produção do webhook autenticado do catálogo)
+   - `N8N_BREVO_EVENT_LIST_URL` (URL de produção do webhook que cria ou reutiliza a lista do evento)
    - `BREVO_WEBHOOK_SECRET` (token Bearer exclusivo para os webhooks transacionais da Brevo)
    - `NEXT_PUBLIC_APP_URL=http://localhost:3000`
 5. Execute `npm run dev`.

@@ -17,6 +17,52 @@ const settingsSchema = z
     message: "Selecione um modelo ativo antes de habilitar o envio.",
   });
 
+const eventListResponseSchema = z.object({
+  folderId: z.number().int().positive(),
+  listId: z.number().int().positive(),
+  listName: z.string().trim().min(1).max(200),
+});
+
+async function provisionBrevoEventList(eventId: string, eventName: string) {
+  const webhookUrl = process.env.N8N_BREVO_EVENT_LIST_URL;
+  const secret = process.env.N8N_INTERNAL_API_SECRET;
+  if (!webhookUrl || !secret || secret.length < 32) {
+    throw new Error("A criação automática da lista do evento ainda não foi configurada.");
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${secret}`,
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        eventId,
+        eventName,
+        folderName: "Clube do Frio — Eventos",
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch {
+    throw new Error("O n8n não respondeu ao criar a lista do evento.");
+  }
+
+  if (!response.ok) {
+    throw new Error("A Brevo não permitiu criar ou localizar a lista do evento.");
+  }
+
+  const parsed = eventListResponseSchema.safeParse(await response.json().catch(() => null));
+  if (!parsed.success || parsed.data.listName !== eventName.trim()) {
+    throw new Error("O n8n retornou uma lista de evento inválida.");
+  }
+
+  return parsed.data;
+}
+
 export async function saveEventBrevoSettingsAction(formData: FormData) {
   const session = await requireSession(["super_adm", "organizador"]);
   const rawTemplateId = String(formData.get("template_id") ?? "").trim();
@@ -30,11 +76,18 @@ export async function saveEventBrevoSettingsAction(formData: FormData) {
   }
 
   const admin = createAdminClient();
-  const { data: event } = await admin
+  const [{ data: event }, { data: currentSettings }] = await Promise.all([
+    admin
     .from("events")
-    .select("id")
+    .select("id, name")
     .eq("id", parsed.data.eventId)
-    .maybeSingle();
+    .maybeSingle(),
+    admin
+      .from("event_brevo_settings")
+      .select("brevo_list_id, brevo_list_name, brevo_list_synced_at")
+      .eq("event_id", parsed.data.eventId)
+      .maybeSingle(),
+  ]);
   if (!event) throw new Error("Evento não encontrado.");
 
   if (parsed.data.templateId !== null) {
@@ -49,10 +102,21 @@ export async function saveEventBrevoSettingsAction(formData: FormData) {
     }
   }
 
+  const normalizedEventName = event.name.trim();
+  const existingListIsCurrent =
+    currentSettings?.brevo_list_id && currentSettings.brevo_list_name === normalizedEventName;
+  const eventList = parsed.data.enabled && !existingListIsCurrent
+    ? await provisionBrevoEventList(event.id, normalizedEventName)
+    : null;
+
   const { error } = await admin.from("event_brevo_settings").upsert({
     event_id: parsed.data.eventId,
     registration_confirmation_enabled: parsed.data.enabled,
     registration_template_id: parsed.data.templateId,
+    brevo_list_id: eventList?.listId ?? currentSettings?.brevo_list_id ?? null,
+    brevo_list_name: eventList?.listName ?? currentSettings?.brevo_list_name ?? null,
+    brevo_list_synced_at:
+      eventList ? new Date().toISOString() : currentSettings?.brevo_list_synced_at ?? null,
     updated_by: session.userId,
   });
   if (error) throw new Error("Não foi possível salvar a configuração da Brevo.");
@@ -64,6 +128,8 @@ export async function saveEventBrevoSettingsAction(formData: FormData) {
       event_id: parsed.data.eventId,
       enabled: parsed.data.enabled,
       template_id: parsed.data.templateId,
+      brevo_list_id: eventList?.listId ?? currentSettings?.brevo_list_id ?? null,
+      brevo_list_name: eventList?.listName ?? currentSettings?.brevo_list_name ?? null,
     },
   });
 
