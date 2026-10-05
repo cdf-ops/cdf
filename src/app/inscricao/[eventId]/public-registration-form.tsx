@@ -30,6 +30,7 @@ type FormField =
   | "fullName"
   | "documentNumber"
   | "email"
+  | "emailConfirmation"
   | "phone"
   | "state"
   | "city"
@@ -40,6 +41,7 @@ type RegistrationFormValues = {
   fullName: string;
   documentNumber: string;
   email: string;
+  emailConfirmation: string;
   phone: string;
   state: string;
   city: string;
@@ -51,6 +53,7 @@ const EMPTY_FORM_VALUES: RegistrationFormValues = {
   fullName: "",
   documentNumber: "",
   email: "",
+  emailConfirmation: "",
   phone: "",
   state: "",
   city: "",
@@ -101,6 +104,10 @@ function formatPhone(value: string) {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
 function validateForm(values: RegistrationFormValues, documentType: DocumentType) {
   const errors: Partial<Record<FormField, string>> = {};
 
@@ -118,6 +125,11 @@ function validateForm(values: RegistrationFormValues, documentType: DocumentType
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) {
     errors.email = "Informe um e-mail válido.";
+  }
+  if (!values.emailConfirmation.trim()) {
+    errors.emailConfirmation = "Confirme seu e-mail.";
+  } else if (normalizeEmail(values.emailConfirmation) !== normalizeEmail(values.email)) {
+    errors.emailConfirmation = "Os e-mails informados não coincidem.";
   }
   if (!isValidBrazilianPhone(values.phone)) {
     errors.phone = "Informe DDD e telefone com 10 ou 11 números.";
@@ -200,6 +212,7 @@ export function PublicRegistrationForm({ eventId, eventDays, embedded = false }:
         fullName: "full_name",
         documentNumber: "document_number",
         email: "email",
+        emailConfirmation: "email_confirmation",
         phone: "phone",
         state: "state",
         city: "city",
@@ -307,6 +320,36 @@ export function PublicRegistrationForm({ eventId, eventDays, embedded = false }:
             <p id="email-feedback" className="mt-1.5 text-xs font-semibold text-red-600">{errors.email}</p>
           ) : values.email ? (
             <p id="email-feedback" className="mt-1.5 text-xs font-semibold text-emerald-700">E-mail válido.</p>
+          ) : null}
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-semibold text-[var(--foreground)]">Confirmar e-mail</label>
+          <input
+            name="email_confirmation"
+            type="email"
+            required
+            value={values.emailConfirmation}
+            onChange={(event) => updateValue("emailConfirmation", event.target.value)}
+            onBlur={() => markTouched("emailConfirmation")}
+            autoComplete="off"
+            placeholder="Digite novamente seu e-mail"
+            aria-invalid={shouldShowError("emailConfirmation", Boolean(values.emailConfirmation))}
+            aria-describedby="email-confirmation-feedback"
+            className={`w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/10 ${
+              shouldShowError("emailConfirmation", Boolean(values.emailConfirmation))
+                ? "border-red-500"
+                : "border-[var(--outline-variant)]/50 focus:border-[var(--primary)]"
+            }`}
+          />
+          {shouldShowError("emailConfirmation", Boolean(values.emailConfirmation)) ? (
+            <p id="email-confirmation-feedback" className="mt-1.5 text-xs font-semibold text-red-600">
+              {errors.emailConfirmation}
+            </p>
+          ) : values.emailConfirmation ? (
+            <p id="email-confirmation-feedback" className="mt-1.5 text-xs font-semibold text-emerald-700">
+              E-mails conferem.
+            </p>
           ) : null}
         </div>
 

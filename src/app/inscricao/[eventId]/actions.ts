@@ -17,24 +17,30 @@ import {
 
 const allowedDocumentTypes = ["CPF", "RNE", "OUTRO"];
 
-const registrationSchema = z.object({
-  eventId: z.string().uuid(),
-  fullName: z.string().trim().min(3, "Nome completo é obrigatório."),
-  documentType: z
-    .string()
-    .trim()
-    .transform((value) => value.toUpperCase())
-    .refine((value) => allowedDocumentTypes.includes(value), "Tipo de documento inválido."),
-  documentNumber: z.string().trim().min(3, "Documento é obrigatório."),
-  email: z.string().email("E-mail inválido."),
-  phone: z.string().trim().refine(isValidBrazilianPhone, "Telefone inválido. Informe DDD e número."),
-  state: z.string().trim().regex(/^[A-Za-z]{2}$/, "Informe a sigla do estado com 2 letras."),
-  city: z.string().trim().min(2, "Cidade é obrigatória."),
-  profession: z.string().trim().min(2, "Profissão é obrigatória."),
-  selectedDays: z.array(z.string().uuid()).min(1, "Selecione ao menos um dia."),
-  exhibitorDataSharing: z.boolean(),
-  website: z.string().trim().optional(),
-});
+const registrationSchema = z
+  .object({
+    eventId: z.string().uuid(),
+    fullName: z.string().trim().min(3, "Nome completo é obrigatório."),
+    documentType: z
+      .string()
+      .trim()
+      .transform((value) => value.toUpperCase())
+      .refine((value) => allowedDocumentTypes.includes(value), "Tipo de documento inválido."),
+    documentNumber: z.string().trim().min(3, "Documento é obrigatório."),
+    email: z.string().trim().email("E-mail inválido."),
+    emailConfirmation: z.string().trim().email("Confirmação de e-mail inválida."),
+    phone: z.string().trim().refine(isValidBrazilianPhone, "Telefone inválido. Informe DDD e número."),
+    state: z.string().trim().regex(/^[A-Za-z]{2}$/, "Informe a sigla do estado com 2 letras."),
+    city: z.string().trim().min(2, "Cidade é obrigatória."),
+    profession: z.string().trim().min(2, "Profissão é obrigatória."),
+    selectedDays: z.array(z.string().uuid()).min(1, "Selecione ao menos um dia."),
+    exhibitorDataSharing: z.boolean(),
+    website: z.string().trim().optional(),
+  })
+  .refine((data) => data.email.toLowerCase() === data.emailConfirmation.toLowerCase(), {
+    message: "Os e-mails informados não coincidem.",
+    path: ["emailConfirmation"],
+  });
 
 export type PublicRegistrationState = {
   error: string | null;
@@ -53,6 +59,7 @@ export async function submitPublicRegistration(
     documentType: formData.get("document_type"),
     documentNumber: formData.get("document_number"),
     email: formData.get("email"),
+    emailConfirmation: formData.get("email_confirmation"),
     phone: formData.get("phone"),
     state: formData.get("state"),
     city: formData.get("city"),
