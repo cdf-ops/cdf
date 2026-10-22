@@ -14,15 +14,18 @@ type BadgeScannerProps = {
   eventId: string;
   eventDayId: string;
   initialQrValue?: string;
+  variant?: "default" | "terminal";
 };
 
-export function BadgeScanner({ eventId, eventDayId, initialQrValue }: BadgeScannerProps) {
+export function BadgeScanner({ eventId, eventDayId, initialQrValue, variant = "default" }: BadgeScannerProps) {
   const router = useRouter();
   const [manualValue, setManualValue] = useState("");
   const [result, setResult] = useState<ScannerResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [cameraState, setCameraState] = useState<"idle" | "starting" | "active">("idle");
+  const [isReaderOpen, setIsReaderOpen] = useState(false);
   const scannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null);
+  const readerInputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
   const initialProcessedRef = useRef(false);
 
@@ -55,6 +58,12 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue }: BadgeScann
         if (data.status === "checked_in") {
           if ("vibrate" in navigator) navigator.vibrate(120);
           router.refresh();
+          if (variant === "terminal") {
+            window.setTimeout(() => {
+              setResult(null);
+              document.querySelector<HTMLInputElement>("[data-terminal-search]")?.focus();
+            }, 1800);
+          }
         }
       }
       setManualValue("");
@@ -66,7 +75,7 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue }: BadgeScann
         setIsProcessing(false);
       }, 700);
     }
-  }, [eventDayId, eventId, router]);
+  }, [eventDayId, eventId, router, variant]);
 
   useEffect(() => {
     if (!initialQrValue || initialProcessedRef.current) return;
@@ -83,6 +92,7 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue }: BadgeScann
 
   async function startCamera() {
     if (cameraState !== "idle") return;
+    setIsReaderOpen(false);
     setCameraState("starting");
     setResult(null);
     try {
@@ -113,6 +123,77 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue }: BadgeScann
     scannerRef.current?.clear();
     scannerRef.current = null;
     setCameraState("idle");
+  }
+
+  async function openReader() {
+    if (cameraState === "active") await stopCamera();
+    setIsReaderOpen(true);
+    window.setTimeout(() => readerInputRef.current?.focus(), 50);
+  }
+
+  if (variant === "terminal") {
+    return (
+      <div className="mt-4">
+        <div className="flex flex-wrap justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => (cameraState === "active" ? void stopCamera() : void startCamera())}
+            disabled={cameraState === "starting"}
+            className="min-h-11 rounded-xl border border-[var(--outline-variant)] bg-white px-5 text-sm font-bold text-[var(--foreground)] shadow-sm disabled:opacity-60"
+          >
+            {cameraState === "starting" ? "Abrindo câmera..." : cameraState === "active" ? "Fechar câmera" : "Abrir câmera"}
+          </button>
+          <button
+            type="button"
+            onClick={() => (isReaderOpen ? setIsReaderOpen(false) : void openReader())}
+            className="min-h-11 rounded-xl border border-[var(--outline-variant)] bg-white px-5 text-sm font-bold text-[var(--foreground)] shadow-sm"
+          >
+            {isReaderOpen ? "Fechar leitor USB" : "Usar leitor USB"}
+          </button>
+        </div>
+
+        <div
+          id="badge-camera-reader"
+          className={`mx-auto mt-4 max-w-xl overflow-hidden rounded-2xl bg-black ${cameraState === "idle" ? "hidden" : "min-h-72"}`}
+        />
+
+        {isReaderOpen ? (
+          <form
+            className="mx-auto mt-4 grid max-w-2xl gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void processQrValue(manualValue);
+            }}
+          >
+            <input
+              ref={readerInputRef}
+              value={manualValue}
+              onChange={(event) => setManualValue(event.target.value)}
+              disabled={isProcessing}
+              className="min-h-14 min-w-0 rounded-xl border-2 border-[var(--outline-variant)] bg-white px-4 font-mono text-base outline-none focus:border-[var(--primary)]"
+              placeholder="Faça a leitura do QR Code..."
+            />
+            <button
+              disabled={isProcessing || !manualValue.trim()}
+              className="min-h-14 rounded-xl bg-[var(--primary)] px-6 text-sm font-bold text-white disabled:opacity-60"
+            >
+              {isProcessing ? "Lendo..." : "Ler código"}
+            </button>
+          </form>
+        ) : null}
+
+        {result ? (
+          <div
+            className={`mx-auto mt-4 max-w-2xl rounded-2xl p-5 text-center ${result.kind === "success" ? "bg-emerald-100 text-emerald-800" : result.kind === "warning" ? "bg-amber-100 text-amber-900" : "bg-red-100 text-red-800"}`}
+            role="status"
+          >
+            {result.participantNumber ? <p className="font-mono text-4xl font-black">{result.participantNumber}</p> : null}
+            {result.participantName ? <p className="mt-1 text-2xl font-extrabold">{result.participantName}</p> : null}
+            <p className="mt-1 text-sm font-bold">{result.message}</p>
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   return (

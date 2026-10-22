@@ -14,7 +14,7 @@ const entryCheckinSchema = z.object({
 });
 
 function withNotice(url: string, type: "success" | "error", message: string) {
-  const safeUrl = url.startsWith("/events/") ? url : "/events";
+  const safeUrl = /^\/(?:events|recepcao)\/[0-9a-f-]+(?:[/?]|$)/i.test(url) ? url : "/events";
   const separator = safeUrl.includes("?") ? "&" : "?";
   return `${safeUrl}${separator}notice_type=${type}&notice=${encodeURIComponent(message)}`;
 }

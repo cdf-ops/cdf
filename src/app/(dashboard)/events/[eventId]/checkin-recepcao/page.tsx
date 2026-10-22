@@ -7,7 +7,6 @@ import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerEntryCheckinAction } from "@/app/(dashboard)/events/[eventId]/checkin-recepcao/actions";
 import { BadgeScanner } from "@/app/(dashboard)/events/[eventId]/checkin-recepcao/badge-scanner";
-import { ReceptionModeShell } from "@/app/(dashboard)/events/[eventId]/checkin-recepcao/reception-mode-shell";
 
 type ReceptionCheckinPageProps = {
   params: Promise<{ eventId: string }>;
@@ -136,8 +135,15 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
   const primaryMatch = searchRows[0];
 
   return (
-    <ReceptionModeShell resetKey={queryText}>
     <section className="space-y-4">
+      <div className="flex justify-end">
+        <Link
+          href={`/recepcao/${eventId}?day=${selectedDayId}`}
+          className="gradient-primary inline-flex min-h-12 items-center justify-center rounded-xl px-5 text-sm font-bold text-white"
+        >
+          Iniciar modo recepção
+        </Link>
+      </div>
       <div className="surface-card rounded-2xl p-4 sm:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
@@ -493,6 +499,5 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
         </div>
       </div>
     </section>
-    </ReceptionModeShell>
   );
 }
