@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { getCurrentSession } from "@/lib/auth/session";
 import { getAccessibleEventExhibitor } from "@/lib/exhibitors/access";
-import { loadExhibitorCredentialPdfData } from "@/lib/exhibitor-credentials/data";
-import { generateExhibitorCredentialPdf } from "@/lib/exhibitor-credentials/pdf";
+import { loadSponsorCredentialPdfData } from "@/lib/sponsor-credentials/data";
+import { generateBadgePdf } from "@/lib/badges/pdf";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ const uuidSchema = z.string().uuid();
 
 export async function GET(
   request: Request,
-  context: RouteContext<"/api/events/[eventId]/exhibitor-credentials/preview">
+  context: RouteContext<"/api/events/[eventId]/sponsor-credentials/preview">
 ) {
   const session = await getCurrentSession();
   if (!session) return new Response("Não autenticado.", { status: 401 });
@@ -40,12 +40,21 @@ export async function GET(
   if (!member) return new Response("Cadastre uma pessoa ativa na equipe para visualizar a prévia.", { status: 400 });
 
   try {
-    const data = await loadExhibitorCredentialPdfData(admin, eventExhibitor.id, [member.id]);
-    const bytes = await generateExhibitorCredentialPdf(admin, data);
+    const data = await loadSponsorCredentialPdfData(admin, eventExhibitor.id, [member.id]);
+    const bytes = await generateBadgePdf(admin, {
+      event: data.event,
+      participants: data.members.slice(0, 1).map((member) => ({
+        fullName: member.fullName,
+        participantNumber: member.credentialNumber,
+        qrSlug: member.qrSlug,
+        categoryLabel: data.settings?.sponsor_label ?? "PATROCINADOR",
+      })),
+      settings: data.settings,
+    });
     return new Response(Buffer.from(bytes), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": 'inline; filename="previa-credencial-equipe.pdf"',
+        "Content-Disposition": 'inline; filename="previa-credencial-patrocinador.pdf"',
         "Cache-Control": "private, no-store, max-age=0",
       },
     });

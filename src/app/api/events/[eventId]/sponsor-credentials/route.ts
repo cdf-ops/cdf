@@ -2,17 +2,17 @@ import { z } from "zod";
 import { getCurrentSession } from "@/lib/auth/session";
 import { getAccessibleEventExhibitor } from "@/lib/exhibitors/access";
 import {
-  loadExhibitorCredentialPdfData,
-  recordExhibitorCredentialPrints,
-} from "@/lib/exhibitor-credentials/data";
-import { generateExhibitorCredentialPdf } from "@/lib/exhibitor-credentials/pdf";
+  loadSponsorCredentialPdfData,
+  recordSponsorCredentialPrints,
+} from "@/lib/sponsor-credentials/data";
+import { generateBadgePdf } from "@/lib/badges/pdf";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
 const uuidSchema = z.string().uuid();
 
-export async function POST(request: Request, context: RouteContext<"/api/events/[eventId]/exhibitor-credentials">) {
+export async function POST(request: Request, context: RouteContext<"/api/events/[eventId]/sponsor-credentials">) {
   const session = await getCurrentSession();
   if (!session) return new Response("Não autenticado.", { status: 401 });
   if (!["super_adm", "organizador", "expositor"].includes(session.role)) {
@@ -35,16 +35,25 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
 
   const admin = createAdminClient();
   try {
-    const data = await loadExhibitorCredentialPdfData(admin, eventExhibitor.id, memberIds);
-    const bytes = await generateExhibitorCredentialPdf(admin, data);
-    await recordExhibitorCredentialPrints(admin, {
+    const data = await loadSponsorCredentialPdfData(admin, eventExhibitor.id, memberIds);
+    const bytes = await generateBadgePdf(admin, {
+      event: data.event,
+      participants: data.members.map((member) => ({
+        fullName: member.fullName,
+        participantNumber: member.credentialNumber,
+        qrSlug: member.qrSlug,
+        categoryLabel: data.settings?.sponsor_label ?? "PATROCINADOR",
+      })),
+      settings: data.settings,
+    });
+    await recordSponsorCredentialPrints(admin, {
       eventExhibitorId: eventExhibitor.id,
       memberIds: data.members.map((member) => member.id),
       userId: session.userId,
     });
     await admin.from("audit_logs").insert({
       actor_user_id: session.userId,
-      action: "EXHIBITOR_CREDENTIALS_BATCH_PRINTED",
+      action: "SPONSOR_CREDENTIALS_BATCH_PRINTED",
       context: {
         event_id: eventId,
         exhibitor_company_id: companyId,
@@ -55,7 +64,7 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
     return new Response(Buffer.from(bytes), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="credenciais-expositor-${companyId}.pdf"`,
+        "Content-Disposition": `attachment; filename="credenciais-patrocinador-${companyId}.pdf"`,
         "Cache-Control": "private, no-store, max-age=0",
       },
     });

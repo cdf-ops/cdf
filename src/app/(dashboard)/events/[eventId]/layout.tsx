@@ -68,8 +68,8 @@ export default async function EventScopedLayout({ children, params }: EventScope
     { href: `/events/${eventId}/lista-do-dia`, label: "Lista do Dia", roles: ["super_adm", "organizador", "recepcao"] },
     { href: `/events/${eventId}/checkin-expositor`, label: "Check-in Expositor", roles: ["expositor"] },
     {
-      href: `/events/${eventId}/credenciais-equipe`,
-      label: "Credenciais da Equipe",
+      href: `/events/${eventId}/credencial-patrocinador`,
+      label: "Credencial do Patrocinador",
       roles: ["super_adm", "organizador", "expositor"],
     },
     { href: `/events/${eventId}/participants`, label: "Participantes", roles: ["super_adm", "organizador", "recepcao", "expositor"] },
@@ -84,8 +84,8 @@ export default async function EventScopedLayout({ children, params }: EventScope
     .map(({ href, label }) => ({ href, label }));
 
   return (
-    <section className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-      <aside className="shell-card hidden h-fit rounded-2xl p-3 lg:sticky lg:top-24 lg:block">
+    <section data-event-shell className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <aside data-event-sidebar className="shell-card hidden h-fit rounded-2xl p-3 lg:sticky lg:top-24 lg:block">
         <p className="px-2 pb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Modulos</p>
         <nav className="space-y-1">
           {visibleNavItems.map((item) => (
@@ -100,8 +100,8 @@ export default async function EventScopedLayout({ children, params }: EventScope
         </nav>
       </aside>
 
-      <div className="min-w-0">
-        <div className="shell-card mb-4 rounded-2xl p-4 sm:mb-6 md:p-5">
+      <div data-event-content className="min-w-0">
+        <div data-event-context className="shell-card mb-4 rounded-2xl p-4 sm:mb-6 md:p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Evento em Contexto</p>

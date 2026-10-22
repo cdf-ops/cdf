@@ -6,6 +6,9 @@ import { requireSession } from "@/lib/auth/session";
 import { ensureParticipantBadge, getApplicationBaseUrl, getCredentialDownloadPath } from "@/lib/badges/tokens";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchConfiguredWebhook } from "@/lib/webhooks/dispatch";
+import { parseBadgeLayout } from "@/lib/badges/layout";
+import { uploadEventImage } from "@/lib/certificates/assets";
+import type { Json } from "@/lib/supabase/database.types";
 
 const generateBadgeSchema = z.object({
   eventId: z.string().uuid(),
@@ -26,6 +29,55 @@ const saveSettingsSchema = z.object({
   youtubeLabel: z.string().trim().max(80),
   certificateUrl: optionalUrl,
 });
+
+const saveLayoutSchema = z.object({
+  eventId: z.string().uuid(),
+  participantLabel: z.string().trim().min(1).max(40),
+  sponsorLabel: z.string().trim().min(1).max(40),
+  layoutJson: z.string().min(2).max(50_000),
+});
+
+export async function saveBadgeLayoutAction(formData: FormData) {
+  const session = await requireSession(["super_adm", "organizador"]);
+  const parsed = saveLayoutSchema.safeParse({
+    eventId: formData.get("event_id"),
+    participantLabel: formData.get("participant_label"),
+    sponsorLabel: formData.get("sponsor_label"),
+    layoutJson: formData.get("layout_json"),
+  });
+  if (!parsed.success) throw new Error("Configuração visual da credencial inválida.");
+
+  const layout = parseBadgeLayout(parsed.data.layoutJson);
+  const admin = createAdminClient();
+  const { data: current } = await admin
+    .from("event_badge_settings")
+    .select("background_path")
+    .eq("event_id", parsed.data.eventId)
+    .maybeSingle();
+  const fileValue = formData.get("badge_background");
+  const backgroundFile = fileValue instanceof File && fileValue.size > 0 ? fileValue : null;
+  const backgroundPath = backgroundFile
+    ? await uploadEventImage(admin, parsed.data.eventId, backgroundFile, "badge-background")
+    : current?.background_path ?? null;
+
+  const { error } = await admin.from("event_badge_settings").upsert({
+    event_id: parsed.data.eventId,
+    background_path: backgroundPath,
+    layout: layout as unknown as Json,
+    participant_label: parsed.data.participantLabel,
+    sponsor_label: parsed.data.sponsorLabel,
+    updated_by: session.userId,
+  });
+  if (error) throw new Error("Não foi possível salvar o modelo compartilhado da credencial.");
+
+  await admin.from("audit_logs").insert({
+    actor_user_id: session.userId,
+    action: "BADGE_LAYOUT_UPDATED",
+    context: { event_id: parsed.data.eventId, has_background: Boolean(backgroundPath) },
+  });
+  revalidatePath(`/events/${parsed.data.eventId}/credentials`);
+  revalidatePath(`/events/${parsed.data.eventId}/credencial-patrocinador`);
+}
 
 export async function generateBadgeAction(formData: FormData) {
   const session = await requireSession(["super_adm", "organizador"]);

@@ -1,7 +1,7 @@
 import Form from "next/form";
 import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
-import { formatDateOnly, formatSaoPauloTime, getSaoPauloDateKey } from "@/lib/date-time";
+import { formatDateOnly, formatSaoPauloTime, getClosestEventDayId } from "@/lib/date-time";
 import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveExhibitorCompanyIdsForUser } from "@/lib/exhibitors/access-status";
@@ -22,14 +22,6 @@ type ExhibitorCheckinPageProps = {
     scan?: string;
   }>;
 };
-
-function getDefaultDayId(eventDays: { id: string; date: string }[]) {
-  if (!eventDays.length) {
-    return "";
-  }
-  const today = getSaoPauloDateKey();
-  return eventDays.find((day) => day.date === today)?.id ?? eventDays[0].id;
-}
 
 export default async function ExhibitorCheckinPage({ params, searchParams }: ExhibitorCheckinPageProps) {
   const session = await requireSession(["expositor"]);
@@ -55,7 +47,7 @@ export default async function ExhibitorCheckinPage({ params, searchParams }: Exh
     );
   }
 
-  const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getDefaultDayId(eventDays);
+  const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getClosestEventDayId(eventDays);
 
   const companyIds = await getActiveExhibitorCompanyIdsForUser(admin, session.userId);
 

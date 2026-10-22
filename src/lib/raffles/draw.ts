@@ -38,6 +38,10 @@ export async function executeRaffleRound(
     executedBy: string;
   }
 ): Promise<RaffleRoundResult> {
+  if (!Number.isInteger(input.winnersCount) || input.winnersCount < 1 || input.winnersCount > 5) {
+    throw new Error("Cada rodada deve sortear entre 1 e 5 pessoas.");
+  }
+
   const { data: eventDay } = await admin
     .from("event_days")
     .select("id")

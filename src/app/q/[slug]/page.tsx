@@ -1,11 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { getCurrentSession } from "@/lib/auth/session";
 import { extractCredentialSlug } from "@/lib/badges/tokens";
+import { getClosestEventDayId } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-function todayInSaoPaulo() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-}
 
 export default async function BadgeQrPage({ params }: { params: Promise<{ slug: string }> }) {
   const session = await getCurrentSession();
@@ -16,15 +13,32 @@ export default async function BadgeQrPage({ params }: { params: Promise<{ slug: 
 
   const admin = createAdminClient();
   const { data: badge } = await admin.from("badges").select("event_id").eq("qr_slug", slug).maybeSingle();
-  if (!badge) notFound();
-  const { data: days } = await admin.from("event_days").select("id, date").eq("event_id", badge.event_id).order("date");
-  const selectedDay = (days ?? []).find((day) => day.date === todayInSaoPaulo()) ?? days?.[0];
-  if (!selectedDay) notFound();
+  let eventId = badge?.event_id;
+  if (!eventId) {
+    const { data: sponsorCredential } = await admin
+      .from("exhibitor_credentials")
+      .select("event_exhibitor_id")
+      .eq("qr_slug", slug)
+      .eq("status", "active")
+      .maybeSingle();
+    if (sponsorCredential) {
+      const { data: eventSponsor } = await admin
+        .from("event_exhibitors")
+        .select("event_id")
+        .eq("id", sponsorCredential.event_exhibitor_id)
+        .maybeSingle();
+      eventId = eventSponsor?.event_id;
+    }
+  }
+  if (!eventId) notFound();
+  const { data: days } = await admin.from("event_days").select("id, date").eq("event_id", eventId).order("date");
+  const selectedDayId = getClosestEventDayId(days ?? []);
+  if (!selectedDayId) notFound();
   if (session.role === "expositor") {
-    redirect(`/events/${badge.event_id}/checkin-expositor?day=${selectedDay.id}&scan=${encodeURIComponent(slug)}`);
+    redirect(`/events/${eventId}/checkin-expositor?day=${selectedDayId}&scan=${encodeURIComponent(slug)}`);
   }
   if (["super_adm", "organizador", "recepcao"].includes(session.role)) {
-    redirect(`/events/${badge.event_id}/checkin-recepcao?day=${selectedDay.id}&scan=${encodeURIComponent(slug)}`);
+    redirect(`/events/${eventId}/checkin-recepcao?day=${selectedDayId}&scan=${encodeURIComponent(slug)}`);
   }
   redirect("/forbidden");
 }

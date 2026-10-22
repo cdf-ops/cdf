@@ -2,10 +2,10 @@ import { z } from "zod";
 import { getCurrentSession } from "@/lib/auth/session";
 import { getAccessibleEventExhibitor } from "@/lib/exhibitors/access";
 import {
-  loadExhibitorCredentialPdfData,
-  recordExhibitorCredentialPrints,
-} from "@/lib/exhibitor-credentials/data";
-import { generateExhibitorCredentialPdf } from "@/lib/exhibitor-credentials/pdf";
+  loadSponsorCredentialPdfData,
+  recordSponsorCredentialPrints,
+} from "@/lib/sponsor-credentials/data";
+import { generateBadgePdf } from "@/lib/badges/pdf";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ const uuidSchema = z.string().uuid();
 
 export async function GET(
   request: Request,
-  context: RouteContext<"/api/events/[eventId]/exhibitor-credentials/[memberId]">
+  context: RouteContext<"/api/events/[eventId]/sponsor-credentials/[memberId]">
 ) {
   const session = await getCurrentSession();
   if (!session) return new Response("Não autenticado.", { status: 401 });
@@ -33,23 +33,32 @@ export async function GET(
 
   const admin = createAdminClient();
   try {
-    const data = await loadExhibitorCredentialPdfData(admin, eventExhibitor.id, [memberId]);
-    const bytes = await generateExhibitorCredentialPdf(admin, data);
-    await recordExhibitorCredentialPrints(admin, {
+    const data = await loadSponsorCredentialPdfData(admin, eventExhibitor.id, [memberId]);
+    const bytes = await generateBadgePdf(admin, {
+      event: data.event,
+      participants: data.members.map((member) => ({
+        fullName: member.fullName,
+        participantNumber: member.credentialNumber,
+        qrSlug: member.qrSlug,
+        categoryLabel: data.settings?.sponsor_label ?? "PATROCINADOR",
+      })),
+      settings: data.settings,
+    });
+    await recordSponsorCredentialPrints(admin, {
       eventExhibitorId: eventExhibitor.id,
       memberIds: [memberId],
       userId: session.userId,
     });
     await admin.from("audit_logs").insert({
       actor_user_id: session.userId,
-      action: "EXHIBITOR_CREDENTIAL_PRINTED",
+      action: "SPONSOR_CREDENTIAL_PRINTED",
       context: { event_id: eventId, exhibitor_company_id: companyId, team_member_id: memberId },
     });
 
     return new Response(Buffer.from(bytes), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="credencial-expositor-${memberId}.pdf"`,
+        "Content-Disposition": `attachment; filename="credencial-patrocinador-${memberId}.pdf"`,
         "Cache-Control": "private, no-store, max-age=0",
       },
     });

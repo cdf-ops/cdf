@@ -57,6 +57,23 @@ export function getSaoPauloDateKey(value: DateValue = new Date()) {
   return `${values.get("year")}-${values.get("month")}-${values.get("day")}`;
 }
 
+export function getClosestEventDayId(
+  eventDays: { id: string; date: string }[],
+  referenceDate = getSaoPauloDateKey()
+) {
+  if (!eventDays.length) return "";
+
+  const referenceTime = Date.parse(`${referenceDate.slice(0, 10)}T12:00:00Z`);
+  return [...eventDays].sort((left, right) => {
+    const leftTime = Date.parse(`${left.date.slice(0, 10)}T12:00:00Z`);
+    const rightTime = Date.parse(`${right.date.slice(0, 10)}T12:00:00Z`);
+    const distance = Math.abs(leftTime - referenceTime) - Math.abs(rightTime - referenceTime);
+
+    // Em um empate, prioriza o próximo dia do evento.
+    return distance || rightTime - leftTime;
+  })[0].id;
+}
+
 export function getSaoPauloHour(value: DateValue) {
   return Number(
     new Intl.DateTimeFormat("en-US", {

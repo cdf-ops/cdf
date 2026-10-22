@@ -28,7 +28,71 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
     admin.from("badges").select("id, participant_id").eq("event_id", eventId).eq("qr_slug", qrSlug).maybeSingle(),
   ]);
   if (!eventDay) return Response.json({ error: "O dia selecionado não pertence a este evento." }, { status: 400 });
-  if (!badge) return Response.json({ error: "Credencial não encontrada para este evento." }, { status: 404 });
+  if (!badge) {
+    const { data: sponsorCredential } = await admin
+      .from("exhibitor_credentials")
+      .select("id, event_exhibitor_id, team_member_id, credential_number")
+      .eq("qr_slug", qrSlug)
+      .eq("status", "active")
+      .maybeSingle();
+    if (!sponsorCredential) return Response.json({ error: "Credencial não encontrada para este evento." }, { status: 404 });
+
+    const [{ data: eventSponsor }, { data: member }] = await Promise.all([
+      admin.from("event_exhibitors").select("event_id").eq("id", sponsorCredential.event_exhibitor_id).eq("event_id", eventId).maybeSingle(),
+      admin.from("exhibitor_team_members").select("full_name").eq("id", sponsorCredential.team_member_id).maybeSingle(),
+    ]);
+    if (!eventSponsor || !member) return Response.json({ error: "Patrocinador não encontrado neste evento." }, { status: 404 });
+
+    const sponsorPerson = {
+      full_name: member.full_name,
+      participant_number: sponsorCredential.credential_number,
+    };
+    const { data: existingSponsorCheckin } = await admin
+      .from("sponsor_entry_checkins")
+      .select("checked_in_at")
+      .eq("sponsor_credential_id", sponsorCredential.id)
+      .eq("event_day_id", eventDay.id)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (existingSponsorCheckin) {
+      return Response.json({
+        status: "already_checked_in",
+        participant: sponsorPerson,
+        checkedInAt: existingSponsorCheckin.checked_in_at,
+        message: `${member.full_name} já realizou check-in neste dia como patrocinador.`,
+      });
+    }
+
+    const checkedInAt = new Date().toISOString();
+    const { error } = await admin.from("sponsor_entry_checkins").insert({
+      sponsor_credential_id: sponsorCredential.id,
+      event_day_id: eventDay.id,
+      operator_user_id: session.userId,
+      checked_in_at: checkedInAt,
+    });
+    if (error && error.code !== "23505") {
+      return Response.json({ error: "Não foi possível registrar o check-in do patrocinador." }, { status: 500 });
+    }
+
+    await admin.from("audit_logs").insert({
+      actor_user_id: session.userId,
+      action: "SPONSOR_ENTRY_CHECKIN_CREATED_BY_BADGE",
+      context: {
+        event_id: eventId,
+        event_day_id: eventDay.id,
+        sponsor_credential_id: sponsorCredential.id,
+        team_member_id: sponsorCredential.team_member_id,
+      },
+    });
+    return Response.json({
+      status: error?.code === "23505" ? "already_checked_in" : "checked_in",
+      participant: sponsorPerson,
+      checkedInAt,
+      message: error?.code === "23505"
+        ? `${member.full_name} já realizou check-in neste dia como patrocinador.`
+        : `Check-in de ${member.full_name} realizado com sucesso como patrocinador.`,
+    });
+  }
 
   const { data: participant } = await admin
     .from("participants")

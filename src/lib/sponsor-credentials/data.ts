@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { createCredentialSlug } from "@/lib/badges/tokens";
 
-export async function loadExhibitorCredentialPdfData(
+export async function loadSponsorCredentialPdfData(
   admin: SupabaseClient<Database>,
   eventExhibitorId: string,
   requestedMemberIds: string[]
@@ -48,10 +49,35 @@ export async function loadExhibitorCredentialPdfData(
   }
 
   const { data: settings } = await admin
-    .from("event_exhibitor_badge_settings")
+    .from("event_badge_settings")
     .select("*")
     .eq("event_id", event.id)
     .maybeSingle();
+
+  const { data: existingCredentials } = await admin
+    .from("exhibitor_credentials")
+    .select("id, team_member_id, qr_slug, credential_number")
+    .eq("event_exhibitor_id", eventExhibitor.id)
+    .in("team_member_id", memberIds);
+  const existingByMember = new Map((existingCredentials ?? []).map((credential) => [credential.team_member_id, credential]));
+  const missingMembers = members.filter((member) => !existingByMember.has(member.id));
+  if (missingMembers.length) {
+    const { error } = await admin.from("exhibitor_credentials").insert(
+      missingMembers.map((member) => ({
+        event_exhibitor_id: eventExhibitor.id,
+        team_member_id: member.id,
+        category: "expositor" as const,
+        qr_slug: createCredentialSlug(),
+      }))
+    );
+    if (error) throw new Error("Não foi possível gerar os identificadores das credenciais do patrocinador.");
+  }
+  const { data: credentials } = await admin
+    .from("exhibitor_credentials")
+    .select("team_member_id, qr_slug, credential_number")
+    .eq("event_exhibitor_id", eventExhibitor.id)
+    .in("team_member_id", memberIds);
+  const credentialByMember = new Map((credentials ?? []).map((credential) => [credential.team_member_id, credential]));
 
   return {
     eventExhibitorId: eventExhibitor.id,
@@ -74,12 +100,14 @@ export async function loadExhibitorCredentialPdfData(
         id: member.id,
         fullName: member.full_name,
         jobTitle: member.job_title,
+        qrSlug: credentialByMember.get(member.id)?.qr_slug ?? "",
+        credentialNumber: credentialByMember.get(member.id)?.credential_number ?? 0,
       })),
     settings,
   };
 }
 
-export async function recordExhibitorCredentialPrints(
+export async function recordSponsorCredentialPrints(
   admin: SupabaseClient<Database>,
   input: {
     eventExhibitorId: string;

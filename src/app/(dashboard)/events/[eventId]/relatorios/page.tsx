@@ -1,21 +1,13 @@
 import Form from "next/form";
 import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
-import { formatDateOnly, getSaoPauloDateKey } from "@/lib/date-time";
+import { formatDateOnly, getClosestEventDayId } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type ReportsPageProps = {
   params: Promise<{ eventId: string }>;
   searchParams: Promise<{ day?: string }>;
 };
-
-function getDefaultDayId(eventDays: { id: string; date: string }[]) {
-  if (!eventDays.length) {
-    return "";
-  }
-  const today = getSaoPauloDateKey();
-  return eventDays.find((day) => day.date === today)?.id ?? eventDays[0].id;
-}
 
 export default async function ReportsPage({ params, searchParams }: ReportsPageProps) {
   await requireSession(["super_adm", "organizador"]);
@@ -39,7 +31,7 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
     );
   }
 
-  const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getDefaultDayId(eventDays);
+  const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getClosestEventDayId(eventDays);
 
   const { data: entryCheckinsAll } = await admin
     .from("entry_checkins")
@@ -57,13 +49,20 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
       eventDays.map((item) => item.id)
     )
     .is("deleted_at", null);
+  const { data: sponsorCheckinsAll } = await admin
+    .from("sponsor_entry_checkins")
+    .select("sponsor_credential_id, event_day_id")
+    .in("event_day_id", eventDays.map((item) => item.id))
+    .is("deleted_at", null);
 
   const entryRows = entryCheckinsAll ?? [];
   const standRows = standCheckinsAll ?? [];
+  const sponsorRows = sponsorCheckinsAll ?? [];
 
   const totalsByDay = eventDays.map((eventDay) => {
     const entryDay = entryRows.filter((item) => item.event_day_id === eventDay.id);
     const standDay = standRows.filter((item) => item.event_day_id === eventDay.id);
+    const sponsorDay = sponsorRows.filter((item) => item.event_day_id === eventDay.id);
     return {
       dayId: eventDay.id,
       date: eventDay.date,
@@ -71,12 +70,16 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
       entryUnique: new Set(entryDay.map((item) => item.participant_id)).size,
       standCount: standDay.length,
       standUnique: new Set(standDay.map((item) => item.participant_id)).size,
+      sponsorCount: sponsorDay.length,
+      sponsorUnique: new Set(sponsorDay.map((item) => item.sponsor_credential_id)).size,
     };
   });
 
   const totalEntry = entryRows.length;
   const totalEntryUnique = new Set(entryRows.map((item) => item.participant_id)).size;
   const totalStand = standRows.length;
+  const totalSponsor = sponsorRows.length;
+  const totalSponsorUnique = new Set(sponsorRows.map((item) => item.sponsor_credential_id)).size;
   const selectedDayEntryUnique = new Set(
     entryRows.filter((item) => item.event_day_id === selectedDayId).map((item) => item.participant_id)
   ).size;
@@ -143,7 +146,12 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
         </Form>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="surface-card rounded-xl p-4">
+          <p className="text-xs text-muted">Check-ins Patrocinadores</p>
+          <p className="font-headline text-3xl font-extrabold">{totalSponsor}</p>
+          <p className="text-xs text-muted">{totalSponsorUnique} patrocinadores únicos</p>
+        </div>
         <div className="surface-card rounded-xl p-4">
           <p className="text-xs text-muted">Check-ins Entrada (total)</p>
           <p className="font-headline text-3xl font-extrabold">{totalEntry}</p>
@@ -171,6 +179,7 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
                 <th className="px-3 py-2">Entrada (únicos)</th>
                 <th className="px-3 py-2">Stand (bruto)</th>
                 <th className="px-3 py-2">Stand (únicos)</th>
+                <th className="px-3 py-2">Patrocinadores</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--surface-container)]">
@@ -181,6 +190,7 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
                   <td className="px-3 py-2">{row.entryUnique}</td>
                   <td className="px-3 py-2">{row.standCount}</td>
                   <td className="px-3 py-2">{row.standUnique}</td>
+                  <td className="px-3 py-2">{row.sponsorUnique}</td>
                 </tr>
               ))}
             </tbody>

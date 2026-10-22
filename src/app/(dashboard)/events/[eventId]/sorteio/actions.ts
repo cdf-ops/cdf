@@ -11,7 +11,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const executeRaffleSchema = z.object({
   eventId: z.string().uuid(),
   eventDayId: z.string().uuid(),
-  winnersCount: z.coerce.number().int().positive().max(100),
+  winnersCount: z.coerce.number().int().positive().max(5),
   includePreviousWinners: z.coerce.boolean().default(false),
   redirectUrl: z.string().min(1),
 });
@@ -26,6 +26,12 @@ const sponsorBannerSchema = z.object({
   eventId: z.string().uuid(),
   redirectUrl: z.string().min(1),
   removeBanner: z.boolean(),
+});
+
+const raffleDisplaySettingsSchema = z.object({
+  eventId: z.string().uuid(),
+  redirectUrl: z.string().min(1),
+  displayName: z.string().trim().min(1).max(80),
 });
 
 function withNotice(url: string, type: "success" | "error", message: string) {
@@ -160,4 +166,35 @@ export async function saveRaffleSponsorBannerAction(formData: FormData) {
       bannerPath ? "Banner dos patrocinadores atualizado." : "Banner dos patrocinadores removido."
     )
   );
+}
+
+export async function saveRaffleDisplaySettingsAction(formData: FormData) {
+  const session = await requireSession(["super_adm", "organizador"]);
+  const parsed = raffleDisplaySettingsSchema.safeParse({
+    eventId: formData.get("event_id"),
+    redirectUrl: formData.get("redirect_url"),
+    displayName: formData.get("display_name"),
+  });
+  if (!parsed.success) {
+    redirect(withNotice(String(formData.get("redirect_url") ?? "/events"), "error", "Título do telão inválido."));
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("events")
+    .update({ raffle_display_name: parsed.data.displayName })
+    .eq("id", parsed.data.eventId);
+  if (error) {
+    redirect(withNotice(parsed.data.redirectUrl, "error", "Não foi possível salvar o título do telão."));
+  }
+
+  await admin.from("audit_logs").insert({
+    actor_user_id: session.userId,
+    action: "RAFFLE_DISPLAY_SETTINGS_UPDATED",
+    context: { event_id: parsed.data.eventId, display_name: parsed.data.displayName },
+  });
+
+  revalidatePath(`/events/${parsed.data.eventId}/sorteio`);
+  revalidatePath(`/telao/sorteio/${parsed.data.eventId}`);
+  redirect(withNotice(parsed.data.redirectUrl, "success", "Título do telão atualizado."));
 }

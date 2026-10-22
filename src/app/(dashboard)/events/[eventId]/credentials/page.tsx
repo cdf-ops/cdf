@@ -1,13 +1,15 @@
 import Form from "next/form";
 import { requireSession } from "@/lib/auth/session";
 import { parseParticipantNumberSearch } from "@/lib/participants/number";
-import { resolveBadgeSettings } from "@/lib/badges/settings";
+import { parseBadgeLayout } from "@/lib/badges/layout";
 import { formatSaoPauloDateTime } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SubmitButton } from "@/components/submit-button";
+import { createAssetSignedUrl } from "@/lib/certificates/assets";
+import { BadgeLayoutEditor } from "@/app/(dashboard)/events/[eventId]/credentials/badge-layout-editor";
 import {
   generateBadgeAction,
-  saveBadgeSettingsAction,
+  saveBadgeLayoutAction,
 } from "@/app/(dashboard)/events/[eventId]/credentials/actions";
 
 type CredentialsPageProps = {
@@ -28,7 +30,7 @@ export default async function CredentialsPage({ params, searchParams }: Credenti
     admin.from("event_badge_settings").select("*").eq("event_id", eventId).maybeSingle(),
   ]);
   if (!event) return null;
-  const settings = resolveBadgeSettings(storedSettings);
+  const backgroundUrl = await createAssetSignedUrl(admin, storedSettings?.background_path);
   const eventDays = rawEventDays ?? [];
   const registrations =
     eventDays.length > 0
@@ -76,63 +78,23 @@ export default async function CredentialsPage({ params, searchParams }: Credenti
 
   return (
     <section className="space-y-6">
-      <details className="surface-card rounded-2xl p-5">
+      <details open className="surface-card rounded-2xl p-5">
         <summary className="cursor-pointer font-headline text-xl font-extrabold tracking-tight text-[var(--foreground)]">
-          Personalizar modelo A4 dobrável
+          Editor da credencial A4 compartilhada
         </summary>
         <p className="mt-2 text-sm text-muted">
-          As quatro áreas são preservadas. Nome, número e QR de check-in são preenchidos automaticamente.
+          A mesma arte atende participantes e patrocinadores. Cada componente pode ser movido dentro do próprio quadrante.
         </p>
-        <form action={saveBadgeSettingsAction} className="mt-5 grid gap-4 md:grid-cols-2">
-          <input type="hidden" name="event_id" value={eventId} />
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            Cidade em destaque
-            <input name="city_label" defaultValue={settings.city_label ?? event.location} className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal" />
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="text-sm font-semibold text-[var(--foreground)]">
-              Cor principal
-              <input name="primary_color" type="color" defaultValue={settings.primary_color} className="mt-1.5 h-12 w-full rounded-xl border bg-white p-1" />
-            </label>
-            <label className="text-sm font-semibold text-[var(--foreground)]">
-              Cor de fundo
-              <input name="secondary_color" type="color" defaultValue={settings.secondary_color} className="mt-1.5 h-12 w-full rounded-xl border bg-white p-1" />
-            </label>
-          </div>
-          <label className="text-sm font-semibold text-[var(--foreground)] md:col-span-2">
-            Texto institucional
-            <textarea name="institutional_text" rows={4} defaultValue={settings.institutional_text ?? ""} className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal" />
-          </label>
-          <label className="text-sm font-semibold text-[var(--foreground)] md:col-span-2">
-            Programação resumida
-            <textarea name="schedule_text" rows={5} defaultValue={settings.schedule_text ?? ""} className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal" placeholder="19, 20 e 21 de agosto - 18h às 22h30" />
-          </label>
-          <label className="text-sm font-semibold text-[var(--foreground)] md:col-span-2">
-            Link do QR de redes sociais
-            <input name="social_url" type="url" defaultValue={settings.social_url ?? ""} className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-mono font-normal" />
-          </label>
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            Facebook
-            <input name="facebook_label" defaultValue={settings.facebook_label ?? ""} className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal" />
-          </label>
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            Instagram
-            <input name="instagram_label" defaultValue={settings.instagram_label ?? ""} className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal" />
-          </label>
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            YouTube
-            <input name="youtube_label" defaultValue={settings.youtube_label ?? ""} className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-normal" />
-          </label>
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            Link do QR de certificado
-            <input name="certificate_url" type="url" defaultValue={settings.certificate_url ?? ""} className="mt-1.5 w-full rounded-xl border bg-white px-4 py-3 font-mono font-normal" placeholder="Usa a página de certificados quando vazio" />
-          </label>
-          <div className="md:col-span-2 flex justify-end">
-            <SubmitButton pendingLabel="Salvando..." className="gradient-primary rounded-xl px-5 py-2.5 text-sm font-semibold text-white">
-              Salvar modelo
-            </SubmitButton>
-          </div>
-        </form>
+        <div className="mt-5">
+          <BadgeLayoutEditor
+            eventId={eventId}
+            initialLayout={parseBadgeLayout(storedSettings?.layout)}
+            backgroundUrl={backgroundUrl}
+            participantLabel={storedSettings?.participant_label ?? "PARTICIPANTE"}
+            sponsorLabel={storedSettings?.sponsor_label ?? "PATROCINADOR"}
+            action={saveBadgeLayoutAction}
+          />
+        </div>
       </details>
 
       <div className="surface-card rounded-xl p-5">

@@ -2,7 +2,7 @@ import Form from "next/form";
 import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
 import { createAssetSignedUrl } from "@/lib/certificates/assets";
-import { formatDateOnly, formatSaoPauloDateTime, getSaoPauloDateKey } from "@/lib/date-time";
+import { formatDateOnly, formatSaoPauloDateTime, getClosestEventDayId } from "@/lib/date-time";
 import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { issueCertificateAction } from "@/app/(dashboard)/events/[eventId]/certificados/actions";
@@ -17,14 +17,6 @@ type CertificatesPageProps = {
     notice_type?: "success" | "error";
   }>;
 };
-
-function getDefaultDayId(eventDays: { id: string; date: string }[]) {
-  if (!eventDays.length) {
-    return "";
-  }
-  const today = getSaoPauloDateKey();
-  return eventDays.find((day) => day.date === today)?.id ?? eventDays[0].id;
-}
 
 export default async function CertificatesPage({ params, searchParams }: CertificatesPageProps) {
   await requireSession(["super_adm", "organizador"]);
@@ -54,7 +46,7 @@ export default async function CertificatesPage({ params, searchParams }: Certifi
     );
   }
 
-  const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getDefaultDayId(eventDays);
+  const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getClosestEventDayId(eventDays);
   const returnUrl = `/events/${eventId}/certificados?day=${selectedDayId}${queryText ? `&q=${encodeURIComponent(queryText)}` : ""}`;
   const publicCertificateLink = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/certificado/${eventId}`;
 

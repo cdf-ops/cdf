@@ -8,7 +8,9 @@ type RaffleStageProps = {
   eventId: string;
   eventDayId: string;
   eventName: string;
+  displayName: string;
   eventDate: string;
+  eventLogoUrl: string | null;
   sponsorBannerUrl: string | null;
 };
 
@@ -20,7 +22,9 @@ export function RaffleStage({
   eventId,
   eventDayId,
   eventName,
+  displayName,
   eventDate,
+  eventLogoUrl,
   sponsorBannerUrl,
 }: RaffleStageProps) {
   const [stage, setStage] = useState<Stage>("setup");
@@ -81,25 +85,29 @@ export function RaffleStage({
   }
 
   const resultGridClass =
-    result && result.winners.length > 12
-      ? "grid-cols-4 xl:grid-cols-5"
-      : result && result.winners.length > 6
-        ? "grid-cols-3 xl:grid-cols-4"
-        : result && result.winners.length > 1
-          ? "grid-cols-2 xl:grid-cols-3"
-          : "mx-auto max-w-4xl";
+    result && result.winners.length > 3
+      ? "grid-cols-2 xl:grid-cols-3"
+      : result && result.winners.length > 1
+        ? "grid-cols-2"
+        : "mx-auto max-w-5xl";
 
   return (
     <main className="relative h-screen h-[100dvh] overflow-hidden bg-[#f7f9fb] p-2 text-[#191c1e] md:p-4">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(0,94,164,0.12),transparent_34%),radial-gradient(circle_at_88%_28%,rgba(0,106,98,0.18),transparent_38%)]" />
 
-      <section className="relative mx-auto grid h-full min-h-0 w-full max-w-7xl grid-rows-[auto_minmax(0,1fr)_auto] rounded-2xl bg-white/62 p-3 shadow-[0_28px_80px_-44px_rgba(0,96,168,0.55)] backdrop-blur-sm md:p-5">
+      <section className="relative mx-auto grid h-full min-h-0 w-full grid-rows-[auto_minmax(0,1fr)_auto] rounded-2xl bg-white/62 p-3 shadow-[0_28px_80px_-44px_rgba(0,96,168,0.55)] backdrop-blur-sm md:p-6">
         <header>
-          <div>
-            <p className="font-headline text-2xl font-extrabold tracking-tight text-[var(--primary)] md:text-4xl">CLUBE DO FRIO</p>
+          <div className="flex items-center gap-4">
+            {eventLogoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={eventLogoUrl} alt={`Logo ${eventName}`} className="h-14 w-28 object-contain md:h-20 md:w-40" />
+            ) : null}
+            <div>
+              <p className="font-headline text-2xl font-extrabold tracking-tight text-[var(--primary)] md:text-4xl">{displayName}</p>
             <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--outline)] md:text-sm md:tracking-[0.18em]">
               {eventName} | {new Date(`${eventDate}T12:00:00`).toLocaleDateString("pt-BR")}
             </p>
+            </div>
           </div>
         </header>
 
@@ -114,9 +122,9 @@ export function RaffleStage({
                 <input
                   type="number"
                   min={1}
-                  max={40}
+                  max={5}
                   value={winnersCount}
-                  onChange={(event) => setWinnersCount(Math.max(1, Math.min(40, Number(event.target.value) || 1)))}
+                  onChange={(event) => setWinnersCount(Math.max(1, Math.min(5, Number(event.target.value) || 1)))}
                   className="mt-1 h-11 w-full rounded-xl border border-[var(--outline-variant)]/60 bg-white px-4 text-center text-xl font-extrabold outline-none focus:border-[var(--primary)] md:h-12 md:text-2xl"
                 />
               </label>
@@ -128,10 +136,7 @@ export function RaffleStage({
                   onChange={(event) => setIncludePreviousWinners(event.target.checked)}
                   className="h-5 w-5"
                 />
-                <span>
-                  <span className="block text-sm font-bold text-[var(--foreground)]">Incluir visitantes já sorteados</span>
-                  <span className="mt-0.5 block text-xs text-muted">Por padrão, quem já ganhou no dia fica fora das próximas rodadas.</span>
-                </span>
+                <span className="block text-sm font-bold text-[var(--foreground)]">Incluir visitantes já sorteados</span>
               </label>
 
               {error ? <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
@@ -176,7 +181,7 @@ export function RaffleStage({
               <div className={`mt-3 grid gap-2 md:gap-3 ${resultGridClass}`}>
                 {result.winners.map((winner) => (
                   <div key={winner.id} className="rounded-xl bg-white/90 px-3 py-2 text-center shadow-[0_18px_44px_-32px_rgba(0,96,168,0.48)] md:rounded-2xl md:px-4 md:py-3">
-                    <p className="font-headline text-[clamp(1rem,2.8vh,2.25rem)] font-extrabold uppercase leading-tight tracking-tight text-[#111820]">
+                    <p className="font-headline text-[clamp(1.75rem,5.2vh,4.75rem)] font-extrabold uppercase leading-[0.95] tracking-tight text-[#111820]">
                       {winner.fullName}
                     </p>
                     <p className="mt-1 text-[0.65rem] font-bold uppercase tracking-[0.14em] text-[var(--outline)] md:text-xs md:tracking-[0.18em]">

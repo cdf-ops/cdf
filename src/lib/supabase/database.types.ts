@@ -187,6 +187,7 @@ export type Database = {
           archived_by: string | null;
           event_logo_path: string | null;
           raffle_sponsor_banner_path: string | null;
+          raffle_display_name: string;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -201,6 +202,7 @@ export type Database = {
           archived_by?: string | null;
           event_logo_path?: string | null;
           raffle_sponsor_banner_path?: string | null;
+          raffle_display_name?: string;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -215,6 +217,7 @@ export type Database = {
           archived_by?: string | null;
           event_logo_path?: string | null;
           raffle_sponsor_banner_path?: string | null;
+          raffle_display_name?: string;
           created_by?: string;
           created_at?: string;
           updated_at?: string;
@@ -300,6 +303,10 @@ export type Database = {
           instagram_label: string | null;
           youtube_label: string | null;
           certificate_url: string | null;
+          background_path: string | null;
+          layout: Json;
+          participant_label: string;
+          sponsor_label: string;
           updated_by: string | null;
           created_at: string;
           updated_at: string;
@@ -316,6 +323,10 @@ export type Database = {
           instagram_label?: string | null;
           youtube_label?: string | null;
           certificate_url?: string | null;
+          background_path?: string | null;
+          layout?: Json;
+          participant_label?: string;
+          sponsor_label?: string;
           updated_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -332,6 +343,10 @@ export type Database = {
           instagram_label?: string | null;
           youtube_label?: string | null;
           certificate_url?: string | null;
+          background_path?: string | null;
+          layout?: Json;
+          participant_label?: string;
+          sponsor_label?: string;
           updated_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -756,6 +771,8 @@ export type Database = {
           last_printed_at: string | null;
           last_printed_by: string | null;
           print_count: number;
+          qr_slug: string | null;
+          credential_number: number;
           created_at: string;
           updated_at: string;
         };
@@ -770,6 +787,8 @@ export type Database = {
           last_printed_at?: string | null;
           last_printed_by?: string | null;
           print_count?: number;
+          qr_slug?: string | null;
+          credential_number?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -784,8 +803,43 @@ export type Database = {
           last_printed_at?: string | null;
           last_printed_by?: string | null;
           print_count?: number;
+          qr_slug?: string | null;
+          credential_number?: number;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      sponsor_entry_checkins: {
+        Row: {
+          id: string;
+          sponsor_credential_id: string;
+          event_day_id: string;
+          operator_user_id: string;
+          origin: string;
+          checked_in_at: string;
+          deleted_at: string | null;
+          deleted_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          sponsor_credential_id: string;
+          event_day_id: string;
+          operator_user_id: string;
+          origin?: string;
+          checked_in_at?: string;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          sponsor_credential_id?: string;
+          event_day_id?: string;
+          operator_user_id?: string;
+          origin?: string;
+          checked_in_at?: string;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
         };
         Relationships: [];
       };

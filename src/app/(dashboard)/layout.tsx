@@ -10,7 +10,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      <header className="sticky top-0 z-40 border-b border-[var(--outline-variant)]/20 bg-[var(--header-glass)] backdrop-blur-md">
+      <header data-dashboard-header className="sticky top-0 z-40 border-b border-[var(--outline-variant)]/20 bg-[var(--header-glass)] backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3 md:gap-6">
             <span className="truncate font-headline text-lg font-extrabold tracking-tight text-[var(--primary)] sm:text-xl">
@@ -33,7 +33,7 @@ export default async function DashboardLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 sm:py-8">{children}</main>
+      <main data-dashboard-main className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 sm:py-8">{children}</main>
     </div>
   );
 }

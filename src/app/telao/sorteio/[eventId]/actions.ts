@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const executeRaffleRoundSchema = z.object({
   eventId: z.string().uuid(),
   eventDayId: z.string().uuid(),
-  winnersCount: z.coerce.number().int().positive().max(40),
+  winnersCount: z.coerce.number().int().positive().max(5),
   includePreviousWinners: z.boolean(),
 });
 

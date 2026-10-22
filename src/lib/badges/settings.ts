@@ -14,6 +14,10 @@ export type BadgeSettings = Pick<
   | "instagram_label"
   | "youtube_label"
   | "certificate_url"
+  | "background_path"
+  | "layout"
+  | "participant_label"
+  | "sponsor_label"
 >;
 
 export const DEFAULT_BADGE_SETTINGS: BadgeSettings = {
@@ -28,6 +32,10 @@ export const DEFAULT_BADGE_SETTINGS: BadgeSettings = {
   instagram_label: "@ClubeDoFrio",
   youtube_label: "Clube Do Frio",
   certificate_url: null,
+  background_path: null,
+  layout: { elements: [] },
+  participant_label: "PARTICIPANTE",
+  sponsor_label: "PATROCINADOR",
 };
 
 export function resolveBadgeSettings(settings: Partial<BadgeSettings> | null | undefined): BadgeSettings {

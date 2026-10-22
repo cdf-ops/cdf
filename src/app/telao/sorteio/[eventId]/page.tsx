@@ -1,5 +1,5 @@
 import { requireSession } from "@/lib/auth/session";
-import { getSaoPauloDateKey } from "@/lib/date-time";
+import { getClosestEventDayId } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createAssetSignedUrl } from "@/lib/certificates/assets";
 import { RaffleStage } from "@/app/telao/sorteio/[eventId]/raffle-stage";
@@ -8,14 +8,6 @@ type RaffleTeleprompterPageProps = {
   params: Promise<{ eventId: string }>;
   searchParams: Promise<{ day?: string }>;
 };
-
-function getDefaultDayId(eventDays: { id: string; date: string }[]) {
-  if (!eventDays.length) {
-    return "";
-  }
-  const today = getSaoPauloDateKey();
-  return eventDays.find((day) => day.date === today)?.id ?? eventDays[0].id;
-}
 
 export default async function RaffleTeleprompterPage({ params, searchParams }: RaffleTeleprompterPageProps) {
   await requireSession(["super_adm", "organizador"]);
@@ -29,15 +21,16 @@ export default async function RaffleTeleprompterPage({ params, searchParams }: R
     .eq("event_id", eventId)
     .order("date", { ascending: true });
   const eventDays = eventDaysData ?? [];
-  const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getDefaultDayId(eventDays);
+  const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getClosestEventDayId(eventDays);
   const selectedDay = eventDays.find((item) => item.id === selectedDayId);
 
   const { data: event } = await admin
     .from("events")
-    .select("name, raffle_sponsor_banner_path")
+    .select("name, event_logo_path, raffle_sponsor_banner_path, raffle_display_name")
     .eq("id", eventId)
     .maybeSingle();
   const sponsorBannerUrl = await createAssetSignedUrl(admin, event?.raffle_sponsor_banner_path);
+  const eventLogoUrl = await createAssetSignedUrl(admin, event?.event_logo_path);
 
   if (!selectedDayId || !selectedDay) {
     return (
@@ -55,7 +48,9 @@ export default async function RaffleTeleprompterPage({ params, searchParams }: R
       eventId={eventId}
       eventDayId={selectedDayId}
       eventName={event?.name ?? "Evento"}
+      displayName={event?.raffle_display_name ?? "Circuito dos Instaladores"}
       eventDate={selectedDay.date}
+      eventLogoUrl={eventLogoUrl}
       sponsorBannerUrl={sponsorBannerUrl}
     />
   );

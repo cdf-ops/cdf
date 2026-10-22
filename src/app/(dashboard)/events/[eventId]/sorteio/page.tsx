@@ -2,11 +2,12 @@ import Link from "next/link";
 import Form from "next/form";
 import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
-import { formatDateOnly, formatSaoPauloDateTime, getSaoPauloDateKey } from "@/lib/date-time";
+import { formatDateOnly, formatSaoPauloDateTime, getClosestEventDayId } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createAssetSignedUrl } from "@/lib/certificates/assets";
 import {
   deleteRaffleAction,
+  saveRaffleDisplaySettingsAction,
   saveRaffleSponsorBannerAction,
 } from "@/app/(dashboard)/events/[eventId]/sorteio/actions";
 
@@ -18,14 +19,6 @@ type RafflePageProps = {
     notice_type?: "success" | "error";
   }>;
 };
-
-function getDefaultDayId(eventDays: { id: string; date: string }[]) {
-  if (!eventDays.length) {
-    return "";
-  }
-  const today = getSaoPauloDateKey();
-  return eventDays.find((day) => day.date === today)?.id ?? eventDays[0].id;
-}
 
 export default async function RafflePage({ params, searchParams }: RafflePageProps) {
   const session = await requireSession(["super_adm", "organizador"]);
@@ -49,7 +42,7 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
     );
   }
 
-  const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getDefaultDayId(eventDays);
+  const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getClosestEventDayId(eventDays);
   const returnUrl = `/events/${eventId}/sorteio?day=${selectedDayId}`;
 
   const [{ data: entryCheckinsData }, { data: raffleSettingsEvent }] = await Promise.all([
@@ -58,7 +51,7 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
       .select("participant_id")
       .eq("event_day_id", selectedDayId)
       .is("deleted_at", null),
-    admin.from("events").select("raffle_sponsor_banner_path").eq("id", eventId).maybeSingle(),
+    admin.from("events").select("raffle_sponsor_banner_path, raffle_display_name").eq("id", eventId).maybeSingle(),
   ]);
   const eligibleParticipantIds = [...new Set((entryCheckinsData ?? []).map((item) => item.participant_id))];
   const eligibleCount = eligibleParticipantIds.length;
@@ -170,6 +163,29 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
             <p className="mt-1 text-2xl font-extrabold">{raffles.length}</p>
           </div>
         </div>
+      </div>
+
+      <div className="surface-card rounded-2xl p-6">
+        <h3 className="font-headline text-2xl font-bold tracking-tight text-[var(--foreground)]">Identidade do telão</h3>
+        <p className="mt-2 text-sm text-muted">O logo vem da configuração do evento. Defina abaixo o nome exibido ao lado dele.</p>
+        <form action={saveRaffleDisplaySettingsAction} className="mt-5 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="redirect_url" value={returnUrl} />
+          <label className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--outline)]">
+            Nome exibido no telão
+            <input
+              name="display_name"
+              type="text"
+              required
+              maxLength={80}
+              defaultValue={raffleSettingsEvent?.raffle_display_name ?? "Circuito dos Instaladores"}
+              className="mt-2 block w-full rounded-xl border border-[var(--outline-variant)]/50 bg-white px-4 py-3 text-base normal-case tracking-normal text-[var(--foreground)]"
+            />
+          </label>
+          <SubmitButton pendingLabel="Salvando..." className="gradient-primary rounded-xl px-5 py-3 text-sm font-bold text-white">
+            Salvar nome
+          </SubmitButton>
+        </form>
       </div>
 
       <div className="surface-card rounded-2xl p-6">

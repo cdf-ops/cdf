@@ -1,7 +1,7 @@
 import Form from "next/form";
 import { requireSession } from "@/lib/auth/session";
 import { SubmitButton } from "@/components/submit-button";
-import { formatDateOnly, formatSaoPauloTime, getSaoPauloDateKey, getSaoPauloHour } from "@/lib/date-time";
+import { formatDateOnly, formatSaoPauloTime, getClosestEventDayId, getSaoPauloHour } from "@/lib/date-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type DayListPageProps = {
@@ -18,14 +18,6 @@ type ConsolidatedRow = {
   kind: "Normal" | "Incluído na Hora" | "Stand";
   status: "Ativo";
 };
-
-function getDefaultDayId(eventDays: { id: string; date: string }[]) {
-  if (!eventDays.length) {
-    return "";
-  }
-  const today = getSaoPauloDateKey();
-  return eventDays.find((day) => day.date === today)?.id ?? eventDays[0].id;
-}
 
 function getInitials(name?: string) {
   if (!name) {
@@ -64,7 +56,7 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
     );
   }
 
-  const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getDefaultDayId(eventDays);
+  const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getClosestEventDayId(eventDays);
   const queryText = q.trim().toLowerCase();
 
   const entryCheckins =

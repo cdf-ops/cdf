@@ -23,7 +23,7 @@ export async function uploadEventImage(
   admin: SupabaseClient<Database>,
   eventId: string,
   file: File,
-  name: "logo" | "certificate-background" | "certificate-sponsor"
+  name: "logo" | "certificate-background" | "certificate-sponsor" | "badge-background"
 ) {
   if (!isUploadableImage(file)) {
     throw new Error("Envie uma imagem PNG ou JPG com no máximo 10 MB.");

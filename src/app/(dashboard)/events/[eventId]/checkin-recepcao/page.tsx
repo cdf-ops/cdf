@@ -2,11 +2,12 @@ import Form from "next/form";
 import Link from "next/link";
 import { requireSession } from "@/lib/auth/session";
 import { SubmitButton } from "@/components/submit-button";
-import { formatDateOnly, formatSaoPauloTime, getSaoPauloDateKey } from "@/lib/date-time";
+import { formatDateOnly, formatSaoPauloTime, getClosestEventDayId } from "@/lib/date-time";
 import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerEntryCheckinAction } from "@/app/(dashboard)/events/[eventId]/checkin-recepcao/actions";
 import { BadgeScanner } from "@/app/(dashboard)/events/[eventId]/checkin-recepcao/badge-scanner";
+import { ReceptionModeShell } from "@/app/(dashboard)/events/[eventId]/checkin-recepcao/reception-mode-shell";
 
 type ReceptionCheckinPageProps = {
   params: Promise<{ eventId: string }>;
@@ -18,14 +19,6 @@ type ReceptionCheckinPageProps = {
     scan?: string;
   }>;
 };
-
-function getDefaultDayId(eventDays: { id: string; date: string }[]) {
-  if (!eventDays.length) {
-    return "";
-  }
-  const today = getSaoPauloDateKey();
-  return eventDays.find((day) => day.date === today)?.id ?? eventDays[0].id;
-}
 
 export default async function ReceptionCheckinPage({ params, searchParams }: ReceptionCheckinPageProps) {
   await requireSession(["super_adm", "organizador", "recepcao"]);
@@ -55,7 +48,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
     );
   }
 
-  const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getDefaultDayId(eventDays);
+  const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getClosestEventDayId(eventDays);
   const queryText = q.trim();
   const searchedParticipantNumber = parseParticipantNumberSearch(queryText);
 
@@ -101,7 +94,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
           .or(
             `full_name.ilike.%${queryText}%,document_number.ilike.%${queryText}%,email.ilike.%${queryText}%,phone.ilike.%${queryText}%`
           )
-          .limit(20);
+          .limit(8);
     const participants = participantsRaw ?? [];
     const participantIds = participants.map((item) => item.id);
 
@@ -143,7 +136,8 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
   const primaryMatch = searchRows[0];
 
   return (
-    <section className="space-y-6">
+    <ReceptionModeShell resetKey={queryText}>
+    <section className="space-y-4">
       <div className="surface-card rounded-2xl p-4 sm:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
@@ -201,6 +195,8 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
           <input type="hidden" name="day" value={selectedDayId} />
           <input
             name="q"
+            data-reception-search
+            autoFocus
             defaultValue={queryText}
             placeholder="Número do participante, nome, documento, telefone ou e-mail"
             className="input-surface h-14 rounded-2xl px-4 text-base font-medium outline-none focus:ring-4 focus:ring-[var(--primary)]/10 md:col-span-3 md:h-16 md:px-5 md:text-lg"
@@ -213,7 +209,9 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
           </SubmitButton>
         </Form>
 
-        <BadgeScanner eventId={eventId} eventDayId={selectedDayId} initialQrValue={scan} />
+        <div data-reception-secondary>
+          <BadgeScanner eventId={eventId} eventDayId={selectedDayId} initialQrValue={scan} />
+        </div>
       </div>
 
       {queryText.length >= 2 ? (
@@ -231,17 +229,17 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Documento</p>
-                    <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
+                    <p className="reception-sensitive mt-1 text-sm font-semibold text-[var(--foreground)]">
                       {primaryMatch.document_type} {primaryMatch.document_number}
                     </p>
                   </div>
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Telefone</p>
-                    <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">{primaryMatch.phone}</p>
+                    <p className="reception-sensitive mt-1 text-sm font-semibold text-[var(--foreground)]">{primaryMatch.phone}</p>
                   </div>
                   <div className="sm:col-span-2">
                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">E-mail</p>
-                    <p className="mt-1 break-all text-sm text-muted">{primaryMatch.email}</p>
+                    <p className="reception-sensitive mt-1 break-all text-sm text-muted">{primaryMatch.email}</p>
                   </div>
                 </div>
               </div>
@@ -304,14 +302,14 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                 <dl className="mt-3 grid gap-2 text-sm">
                   <div>
                     <dt className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--outline)]">Documento</dt>
-                    <dd className="mt-1 text-[var(--foreground)]">
+                    <dd className="reception-sensitive mt-1 text-[var(--foreground)]">
                       {row.document_type} {row.document_number}
                     </dd>
                   </div>
                   <div>
                     <dt className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--outline)]">Contato</dt>
-                    <dd className="mt-1 break-all text-muted">{row.email}</dd>
-                    <dd className="mt-0.5 text-muted">{row.phone}</dd>
+                    <dd className="reception-sensitive mt-1 break-all text-muted">{row.email}</dd>
+                    <dd className="reception-sensitive mt-0.5 text-muted">{row.phone}</dd>
                   </div>
                 </dl>
                 {!row.checkedInOnDay ? (
@@ -365,10 +363,10 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
                   <tr key={row.id}>
                     <td className="px-4 py-3">
                       <p className="font-semibold text-[var(--foreground)]">{row.full_name}</p>
-                      <p className="text-xs text-muted">{row.email} | {row.phone}</p>
+                      <p className="reception-sensitive text-xs text-muted">{row.email} | {row.phone}</p>
                     </td>
                     <td className="px-4 py-3 font-mono text-lg font-black text-[var(--primary)]">{row.participant_number}</td>
-                    <td className="px-4 py-3">
+                    <td className="reception-sensitive px-4 py-3">
                       {row.document_type} {row.document_number}
                     </td>
                     <td className="px-4 py-3">
@@ -421,7 +419,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
         </div>
       ) : null}
 
-      <div className="surface-card rounded-xl p-4 sm:p-5">
+      <div data-reception-secondary className="surface-card rounded-xl p-4 sm:p-5">
         <div className="flex items-center justify-between gap-3">
           <h3 className="font-headline text-lg font-bold text-[var(--foreground)]">Ultimos Check-ins</h3>
           <span className="text-xs font-semibold uppercase tracking-wide text-[var(--outline)]">Tempo real</span>
@@ -495,5 +493,6 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
         </div>
       </div>
     </section>
+    </ReceptionModeShell>
   );
 }
