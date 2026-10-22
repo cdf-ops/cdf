@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { restoreEventAction } from "@/app/(dashboard)/events/actions";
 import { EventMobileNav } from "@/app/(dashboard)/events/[eventId]/event-mobile-nav";
+import { EventSidebarNav } from "@/app/(dashboard)/events/[eventId]/event-sidebar-nav";
 import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
 import type { AppRole } from "@/lib/auth/roles";
@@ -51,53 +52,79 @@ export default async function EventScopedLayout({ children, params }: EventScope
     );
   }
 
-  const navItems: { href: string; label: string; roles: AppRole[] }[] = [
-    { href: `/events/${eventId}/settings`, label: "Configuração", roles: ["super_adm", "organizador"] },
+  const navSections: { id: string; label: string; items: { href: string; label: string; roles: AppRole[] }[] }[] = [
     {
-      href: `/events/${eventId}/certificate-settings`,
-      label: "Configuração Certificado",
-      roles: ["super_adm", "organizador"],
+      id: "pre-evento",
+      label: "Pré-evento",
+      items: [
+        { href: `/events/${eventId}/brevo`, label: "Brevo", roles: ["super_adm", "organizador"] },
+        {
+          href: `/events/${eventId}/certificate-settings`,
+          label: "Configuração de certificados",
+          roles: ["super_adm", "organizador"],
+        },
+        { href: `/events/${eventId}/settings`, label: "Configuração do evento", roles: ["super_adm", "organizador"] },
+        {
+          href: `/events/${eventId}/credencial-patrocinador`,
+          label: "Credencial do patrocinador",
+          roles: ["super_adm", "organizador", "expositor"],
+        },
+        {
+          href: `/events/${eventId}/credentials`,
+          label: "Credenciais dos participantes",
+          roles: ["super_adm", "organizador"],
+        },
+        { href: `/events/${eventId}/inscricoes`, label: "Inscrições", roles: ["super_adm", "organizador"] },
+        {
+          href: `/events/${eventId}/participants`,
+          label: "Participantes",
+          roles: ["super_adm", "organizador", "recepcao", "expositor"],
+        },
+      ],
     },
-    { href: `/events/${eventId}/inscricoes`, label: "Inscrições", roles: ["super_adm", "organizador"] },
-    { href: `/events/${eventId}/brevo`, label: "Brevo", roles: ["super_adm", "organizador"] },
     {
-      href: `/events/${eventId}/checkin-recepcao`,
-      label: "Check-in Recepção",
-      roles: ["super_adm", "organizador", "recepcao"],
+      id: "durante-evento",
+      label: "Durante o evento",
+      items: [
+        { href: `/events/${eventId}/checkin-expositor`, label: "Check-in nos estandes", roles: ["expositor"] },
+        {
+          href: `/events/${eventId}/checkin-recepcao`,
+          label: "Check-in da recepção",
+          roles: ["super_adm", "organizador", "recepcao"],
+        },
+        {
+          href: `/events/${eventId}/lista-do-dia`,
+          label: "Lista do dia",
+          roles: ["super_adm", "organizador", "recepcao"],
+        },
+        { href: `/events/${eventId}/sorteio`, label: "Sorteio", roles: ["super_adm", "organizador"] },
+      ],
     },
-    { href: `/events/${eventId}/lista-do-dia`, label: "Lista do Dia", roles: ["super_adm", "organizador", "recepcao"] },
-    { href: `/events/${eventId}/checkin-expositor`, label: "Check-in Expositor", roles: ["expositor"] },
     {
-      href: `/events/${eventId}/credencial-patrocinador`,
-      label: "Credencial do Patrocinador",
-      roles: ["super_adm", "organizador", "expositor"],
+      id: "pos-evento",
+      label: "Pós-evento",
+      items: [
+        { href: `/events/${eventId}/auditoria`, label: "Auditoria", roles: ["super_adm"] },
+        { href: `/events/${eventId}/certificados`, label: "Certificados", roles: ["super_adm", "organizador"] },
+        { href: `/events/${eventId}/relatorios`, label: "Relatórios", roles: ["super_adm", "organizador"] },
+      ],
     },
-    { href: `/events/${eventId}/participants`, label: "Participantes", roles: ["super_adm", "organizador", "recepcao", "expositor"] },
-    { href: `/events/${eventId}/credentials`, label: "Credenciais", roles: ["super_adm", "organizador"] },
-    { href: `/events/${eventId}/sorteio`, label: "Sorteio", roles: ["super_adm", "organizador"] },
-    { href: `/events/${eventId}/certificados`, label: "Certificados", roles: ["super_adm", "organizador"] },
-    { href: `/events/${eventId}/relatorios`, label: "Relatórios", roles: ["super_adm", "organizador"] },
-    { href: `/events/${eventId}/auditoria`, label: "Auditoria", roles: ["super_adm"] },
   ];
-  const visibleNavItems = navItems
-    .filter((item) => item.roles.includes(session.role))
-    .map(({ href, label }) => ({ href, label }));
+  const visibleNavSections = navSections
+    .map((section) => ({
+      id: section.id,
+      label: section.label,
+      items: section.items
+        .filter((item) => item.roles.includes(session.role))
+        .map(({ href, label }) => ({ href, label })),
+    }))
+    .filter((section) => section.items.length > 0);
 
   return (
     <section data-event-shell className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
       <aside data-event-sidebar className="shell-card hidden h-fit rounded-2xl p-3 lg:sticky lg:top-24 lg:block">
         <p className="px-2 pb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Modulos</p>
-        <nav className="space-y-1">
-          {visibleNavItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="block rounded-lg px-3 py-2.5 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-container-lowest)] hover:text-[var(--primary)]"
-              >
-                {item.label}
-              </Link>
-            ))}
-        </nav>
+        <EventSidebarNav sections={visibleNavSections} />
       </aside>
 
       <div data-event-content className="min-w-0">
@@ -113,7 +140,7 @@ export default async function EventScopedLayout({ children, params }: EventScope
               {event.status}
             </span>
           </div>
-          <EventMobileNav items={visibleNavItems} />
+          <EventMobileNav sections={visibleNavSections} />
         </div>
 
         {children}
