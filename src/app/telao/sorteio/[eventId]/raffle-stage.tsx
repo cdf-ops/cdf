@@ -18,6 +18,12 @@ type Stage = "setup" | "countdown" | "drawing" | "result";
 
 const COUNTDOWN_SECONDS = 2;
 
+function formatWinnerName(value: string) {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 2) return parts.join(" ");
+  return `${parts[0]} ${parts[parts.length - 1]}`;
+}
+
 export function RaffleStage({
   eventId,
   eventDayId,
@@ -84,29 +90,38 @@ export function RaffleStage({
     setStage("setup");
   }
 
-  const resultGridClass =
-    result && result.winners.length > 3
-      ? "grid-cols-2 xl:grid-cols-3"
-      : result && result.winners.length > 1
-        ? "grid-cols-2"
-        : "mx-auto max-w-5xl";
-
   return (
     <main className="relative h-screen h-[100dvh] overflow-hidden bg-[#f7f9fb] p-2 text-[#191c1e] md:p-4">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(0,94,164,0.12),transparent_34%),radial-gradient(circle_at_88%_28%,rgba(0,106,98,0.18),transparent_38%)]" />
 
       <section className="relative mx-auto grid h-full min-h-0 w-full grid-rows-[auto_minmax(0,1fr)_auto] rounded-2xl bg-white/62 p-3 shadow-[0_28px_80px_-44px_rgba(0,96,168,0.55)] backdrop-blur-sm md:p-6">
-        <header>
-          <div className="flex items-center gap-4">
+        <header className={stage === "result" ? "shrink-0" : undefined}>
+          <div className={`flex items-center ${stage === "result" ? "gap-3" : "gap-4"}`}>
             {eventLogoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={eventLogoUrl} alt={`Logo ${eventName}`} className="h-14 w-28 object-contain md:h-20 md:w-40" />
+              <img
+                src={eventLogoUrl}
+                alt={`Logo ${eventName}`}
+                className={stage === "result" ? "h-10 w-20 object-contain md:h-14 md:w-28" : "h-14 w-28 object-contain md:h-20 md:w-40"}
+              />
             ) : null}
             <div>
-              <p className="font-headline text-2xl font-extrabold tracking-tight text-[var(--primary)] md:text-4xl">{displayName}</p>
-            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--outline)] md:text-sm md:tracking-[0.18em]">
-              {eventName} | {new Date(`${eventDate}T12:00:00`).toLocaleDateString("pt-BR")}
-            </p>
+              <p
+                className={`font-headline font-extrabold tracking-tight text-[var(--primary)] ${
+                  stage === "result" ? "text-lg md:text-2xl" : "text-2xl md:text-4xl"
+                }`}
+              >
+                {displayName}
+              </p>
+              <p
+                className={`font-semibold uppercase text-[var(--outline)] ${
+                  stage === "result"
+                    ? "text-[0.6rem] tracking-[0.12em] md:text-xs md:tracking-[0.16em]"
+                    : "mt-1 text-xs tracking-[0.14em] md:text-sm md:tracking-[0.18em]"
+                }`}
+              >
+                {eventName} | {new Date(`${eventDate}T12:00:00`).toLocaleDateString("pt-BR")}
+              </p>
             </div>
           </div>
         </header>
@@ -172,30 +187,34 @@ export function RaffleStage({
           ) : null}
 
           {stage === "result" && result ? (
-            <div className="flex h-full min-h-0 w-full flex-col justify-center">
+            <div className="flex h-full min-h-0 w-full flex-col justify-center py-1">
               <div className="text-center">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--secondary)] md:text-sm">Rodada {result.roundNumber}</p>
-                <h1 className="mt-1 font-headline text-[clamp(2rem,6vh,4.5rem)] font-extrabold leading-none tracking-tight">Ganhadores</h1>
+                <h1 className="font-headline text-sm font-extrabold uppercase tracking-[0.18em] text-[var(--secondary)] md:text-lg">
+                  Ganhadores <span className="text-[var(--outline)]">• Rodada {result.roundNumber}</span>
+                </h1>
               </div>
 
-              <div className={`mt-3 grid gap-2 md:gap-3 ${resultGridClass}`}>
+              <div className="mx-auto mt-2 flex min-h-0 w-full max-w-[1500px] flex-1 flex-col gap-1.5 md:gap-2">
                 {result.winners.map((winner) => (
-                  <div key={winner.id} className="rounded-xl bg-white/90 px-3 py-2 text-center shadow-[0_18px_44px_-32px_rgba(0,96,168,0.48)] md:rounded-2xl md:px-4 md:py-3">
-                    <p className="font-headline text-[clamp(1.75rem,5.2vh,4.75rem)] font-extrabold uppercase leading-[0.95] tracking-tight text-[#111820]">
-                      {winner.fullName}
+                  <div
+                    key={winner.id}
+                    className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-xl bg-white/92 px-3 py-1 text-center shadow-[0_14px_36px_-28px_rgba(0,96,168,0.52)] md:rounded-2xl md:px-5"
+                  >
+                    <p className="max-w-full whitespace-nowrap font-headline text-[clamp(1.65rem,min(5.8vh,7vw),5.25rem)] font-extrabold uppercase leading-[0.9] tracking-tight text-[#111820]">
+                      {formatWinnerName(winner.fullName)}
                     </p>
-                    <p className="mt-1 text-[0.65rem] font-bold uppercase tracking-[0.14em] text-[var(--outline)] md:text-xs md:tracking-[0.18em]">
+                    <p className="mt-0.5 text-[0.58rem] font-bold uppercase tracking-[0.13em] text-[var(--outline)] md:text-[0.7rem] md:tracking-[0.16em]">
                       Participante {winner.participantNumber || "-"}
                     </p>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-3 flex justify-center">
+              <div className="mt-2 flex justify-center">
                 <button
                   type="button"
                   onClick={resetRound}
-                  className="rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-bold text-white md:px-6 md:text-base"
+                  className="rounded-xl bg-[var(--primary)] px-5 py-2 text-xs font-bold text-white md:px-6 md:text-sm"
                 >
                   Nova rodada de sorteio
                 </button>
