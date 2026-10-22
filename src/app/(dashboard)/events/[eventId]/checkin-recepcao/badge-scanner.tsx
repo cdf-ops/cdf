@@ -8,6 +8,7 @@ type ScannerResult = {
   message: string;
   participantNumber?: number;
   participantName?: string;
+  printPath?: string;
 };
 
 type BadgeScannerProps = {
@@ -44,6 +45,7 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue, variant = "d
         error?: string;
         status?: "checked_in" | "already_checked_in";
         message?: string;
+        printPath?: string;
         participant?: { full_name: string; participant_number: number };
       };
       if (!response.ok) {
@@ -54,16 +56,11 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue, variant = "d
           message: data.message ?? "Leitura concluída.",
           participantNumber: data.participant?.participant_number,
           participantName: data.participant?.full_name,
+          printPath: data.printPath,
         });
         if (data.status === "checked_in") {
           if ("vibrate" in navigator) navigator.vibrate(120);
           router.refresh();
-          if (variant === "terminal") {
-            window.setTimeout(() => {
-              setResult(null);
-              document.querySelector<HTMLInputElement>("[data-terminal-search]")?.focus();
-            }, 1800);
-          }
         }
       }
       setManualValue("");
@@ -75,7 +72,7 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue, variant = "d
         setIsProcessing(false);
       }, 700);
     }
-  }, [eventDayId, eventId, router, variant]);
+  }, [eventDayId, eventId, router]);
 
   useEffect(() => {
     if (!initialQrValue || initialProcessedRef.current) return;
@@ -129,6 +126,15 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue, variant = "d
     if (cameraState === "active") await stopCamera();
     setIsReaderOpen(true);
     window.setTimeout(() => readerInputRef.current?.focus(), 50);
+  }
+
+  function startNextAttendance() {
+    setResult(null);
+    setManualValue("");
+    window.setTimeout(() => {
+      if (isReaderOpen) readerInputRef.current?.focus();
+      else document.querySelector<HTMLInputElement>("[data-terminal-search]")?.focus();
+    }, 50);
   }
 
   if (variant === "terminal") {
@@ -190,6 +196,25 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue, variant = "d
             {result.participantNumber ? <p className="font-mono text-4xl font-black">{result.participantNumber}</p> : null}
             {result.participantName ? <p className="mt-1 text-2xl font-extrabold">{result.participantName}</p> : null}
             <p className="mt-1 text-sm font-bold">{result.message}</p>
+            {(result.kind === "success" || result.kind === "warning") && result.printPath ? (
+              <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                <a
+                  href={result.printPath}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-14 items-center justify-center rounded-xl bg-emerald-700 px-5 text-sm font-black text-white"
+                >
+                  Imprimir credencial
+                </a>
+                <button
+                  type="button"
+                  onClick={startNextAttendance}
+                  className="min-h-14 rounded-xl border-2 border-current bg-white px-5 text-sm font-black"
+                >
+                  Próximo atendimento
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

@@ -1,19 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 type TerminalShellProps = {
   children: React.ReactNode;
   eventHref: string;
-  clearHref: string;
   resetKey: string;
-  clearAfterSuccess: boolean;
 };
 
-export function TerminalShell({ children, eventHref, clearHref, resetKey, clearAfterSuccess }: TerminalShellProps) {
-  const router = useRouter();
+export function TerminalShell({ children, eventHref, resetKey }: TerminalShellProps) {
   const [privacyState, setPrivacyState] = useState({ resetKey, visible: false });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const showSensitiveData = privacyState.resetKey === resetKey && privacyState.visible;
@@ -27,12 +23,6 @@ export function TerminalShell({ children, eventHref, clearHref, resetKey, clearA
   useEffect(() => {
     document.querySelector<HTMLInputElement>("[data-terminal-search]")?.focus();
   }, [resetKey]);
-
-  useEffect(() => {
-    if (!clearAfterSuccess) return;
-    const timeout = window.setTimeout(() => router.replace(clearHref), 1800);
-    return () => window.clearTimeout(timeout);
-  }, [clearAfterSuccess, clearHref, router]);
 
   async function toggleFullscreen() {
     try {

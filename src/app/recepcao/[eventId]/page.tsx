@@ -6,7 +6,7 @@ import { BadgeScanner } from "@/app/(dashboard)/events/[eventId]/checkin-recepca
 import { TerminalShell } from "@/app/recepcao/[eventId]/terminal-shell";
 import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
-import { formatDateOnly, getClosestEventDayId } from "@/lib/date-time";
+import { getClosestEventDayId } from "@/lib/date-time";
 import { parseParticipantNumberSearch } from "@/lib/participants/number";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -28,7 +28,7 @@ export default async function ReceptionTerminalPage({ params, searchParams }: Re
   const admin = createAdminClient();
 
   const [{ data: event }, { data: eventDaysData }] = await Promise.all([
-    admin.from("events").select("id, name, status").eq("id", eventId).maybeSingle(),
+    admin.from("events").select("id").eq("id", eventId).maybeSingle(),
     admin.from("event_days").select("id, date").eq("event_id", eventId).order("date", { ascending: true }),
   ]);
 
@@ -50,7 +50,6 @@ export default async function ReceptionTerminalPage({ params, searchParams }: Re
   }
 
   const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getClosestEventDayId(eventDays);
-  const selectedDay = eventDays.find((item) => item.id === selectedDayId) ?? eventDays[0];
   const queryText = q.trim();
   const searchedParticipantNumber = parseParticipantNumberSearch(queryText);
 
@@ -105,19 +104,11 @@ export default async function ReceptionTerminalPage({ params, searchParams }: Re
   return (
     <TerminalShell
       eventHref={`/events/${eventId}/checkin-recepcao?day=${selectedDayId}`}
-      clearHref={terminalHref}
       resetKey={queryText}
-      clearAfterSuccess={successNotice}
     >
       <main className="min-h-dvh bg-[var(--background)] px-4 py-5 sm:px-8 sm:py-7 lg:px-12">
         <div className="mx-auto w-full max-w-[1600px]">
-          <header className="pr-32 sm:pr-[330px]">
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--primary)]">Terminal de recepção</p>
-            <h1 className="mt-1 truncate font-headline text-xl font-extrabold text-[var(--foreground)] sm:text-2xl">{event.name}</h1>
-            <p className="mt-1 text-sm font-semibold text-muted">{formatDateOnly(selectedDay.date)}</p>
-          </header>
-
-          <section className="mx-auto mt-8 max-w-5xl text-center sm:mt-12">
+          <section className="mx-auto max-w-5xl pt-16 text-center sm:pt-3">
             <h2 className="font-headline text-3xl font-black tracking-tight text-[var(--foreground)] sm:text-5xl">Localizar participante</h2>
             <p className="mt-2 text-sm text-muted sm:text-base">Busque pelo número, nome, documento, telefone ou e-mail.</p>
 
@@ -140,14 +131,38 @@ export default async function ReceptionTerminalPage({ params, searchParams }: Re
             <BadgeScanner eventId={eventId} eventDayId={selectedDayId} initialQrValue={scan} variant="terminal" />
           </section>
 
-          {notice ? (
+          {notice && !successNotice ? (
             <div
-              className={`mx-auto mt-7 max-w-4xl rounded-2xl px-6 py-5 text-center ${notice_type === "success" ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"}`}
+              className="mx-auto mt-7 max-w-4xl rounded-2xl bg-red-100 px-6 py-5 text-center text-red-800"
               role="status"
             >
               <p className="text-xl font-extrabold sm:text-2xl">{notice}</p>
-              {notice_type === "success" ? <p className="mt-1 text-sm font-semibold">Preparando o próximo atendimento...</p> : null}
             </div>
+          ) : null}
+
+          {successNotice && primaryMatch ? (
+            <section className="mx-auto mt-7 max-w-4xl rounded-3xl bg-emerald-100 px-6 py-7 text-center text-emerald-900 shadow-sm sm:px-10 sm:py-9">
+              <p className="text-5xl" aria-hidden="true">✓</p>
+              <h3 className="mt-2 text-2xl font-black sm:text-3xl">Check-in realizado</h3>
+              <p className="mt-3 font-mono text-4xl font-black text-emerald-800">{primaryMatch.participant_number}</p>
+              <p className="mt-1 text-2xl font-extrabold sm:text-3xl">{primaryMatch.full_name}</p>
+              <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                <a
+                  href={`/api/events/${eventId}/reception-credentials/participant/${primaryMatch.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-16 items-center justify-center rounded-2xl bg-emerald-700 px-6 text-lg font-black text-white hover:bg-emerald-800"
+                >
+                  Imprimir credencial
+                </a>
+                <Link
+                  href={terminalHref}
+                  className="inline-flex min-h-16 items-center justify-center rounded-2xl border-2 border-emerald-700 bg-white px-6 text-lg font-black text-emerald-800"
+                >
+                  Próximo atendimento
+                </Link>
+              </div>
+            </section>
           ) : null}
 
           {!successNotice && primaryMatch ? (
@@ -196,7 +211,17 @@ export default async function ReceptionTerminalPage({ params, searchParams }: Re
                   <div className="m-auto text-center text-emerald-700">
                     <p className="text-5xl" aria-hidden="true">✓</p>
                     <p className="mt-2 text-xl font-extrabold">Check-in já realizado</p>
-                    <Link href={terminalHref} className="mt-5 inline-flex rounded-xl border border-emerald-300 px-4 py-2 text-sm font-bold">Nova busca</Link>
+                    <div className="mt-5 grid gap-2">
+                      <a
+                        href={`/api/events/${eventId}/reception-credentials/participant/${primaryMatch.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex min-h-12 items-center justify-center rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white"
+                      >
+                        Imprimir credencial
+                      </a>
+                      <Link href={terminalHref} className="inline-flex min-h-12 items-center justify-center rounded-xl border border-emerald-300 px-4 text-sm font-bold">Nova busca</Link>
+                    </div>
                   </div>
                 )}
               </div>

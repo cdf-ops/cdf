@@ -58,6 +58,7 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
       return Response.json({
         status: "already_checked_in",
         participant: sponsorPerson,
+        printPath: `/api/events/${eventId}/reception-credentials/sponsor/${sponsorCredential.id}`,
         checkedInAt: existingSponsorCheckin.checked_in_at,
         message: `${member.full_name} já realizou check-in neste dia como patrocinador.`,
       });
@@ -87,6 +88,7 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
     return Response.json({
       status: error?.code === "23505" ? "already_checked_in" : "checked_in",
       participant: sponsorPerson,
+      printPath: `/api/events/${eventId}/reception-credentials/sponsor/${sponsorCredential.id}`,
       checkedInAt,
       message: error?.code === "23505"
         ? `${member.full_name} já realizou check-in neste dia como patrocinador.`
@@ -112,6 +114,7 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
     return Response.json({
       status: "already_checked_in",
       participant,
+      printPath: `/api/events/${eventId}/reception-credentials/participant/${badge.participant_id}`,
       checkedInAt: existing.checked_in_at,
       message: `${participant.full_name} já realizou check-in neste dia.`,
     });
@@ -130,6 +133,7 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
       return Response.json({
         status: "already_checked_in",
         participant,
+        printPath: `/api/events/${eventId}/reception-credentials/participant/${badge.participant_id}`,
         checkedInAt,
         message: `${participant.full_name} já realizou check-in neste dia.`,
       });
@@ -166,6 +170,7 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
   return Response.json({
     status: "checked_in",
     participant,
+    printPath: `/api/events/${eventId}/reception-credentials/participant/${badge.participant_id}`,
     checkedInAt,
     message: `Check-in de ${participant.full_name} realizado com sucesso.`,
   });
