@@ -116,7 +116,9 @@ export function BadgeLayoutEditor(props: BadgeLayoutEditorProps) {
                 type="button"
                 onPointerDown={(event) => startDrag(element, event)}
                 onClick={() => setSelectedId(element.id)}
-                className={`absolute z-10 flex select-none items-center justify-center overflow-hidden border bg-white/75 px-1 text-center font-bold backdrop-blur-[1px] ${selected.id === element.id ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/30" : "border-black/20"}`}
+                className={`absolute z-10 flex select-none items-center justify-center overflow-hidden border px-1 text-center font-bold ${
+                  element.id === "personName" ? "bg-white shadow-sm" : "bg-white/75 backdrop-blur-[1px]"
+                } ${selected.id === element.id ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/30" : "border-black/20"}`}
                 style={{
                   left: `${(element.x / BADGE_PAGE_WIDTH) * 100}%`, top: `${(element.y / BADGE_PAGE_HEIGHT) * 100}%`,
                   width: `${(element.width / BADGE_PAGE_WIDTH) * 100}%`, height: `${(element.height / BADGE_PAGE_HEIGHT) * 100}%`,

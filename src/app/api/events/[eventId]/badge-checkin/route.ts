@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getCurrentSession } from "@/lib/auth/session";
 import { extractCredentialSlug } from "@/lib/badges/tokens";
+import { ensureEventDayRegistration } from "@/lib/registrations/ensure-event-day-registration";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchConfiguredWebhook } from "@/lib/webhooks/dispatch";
 
@@ -103,6 +104,13 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
     .maybeSingle();
   if (!participant) return Response.json({ error: "Participante não encontrado." }, { status: 404 });
 
+  let registrationCreated = false;
+  try {
+    registrationCreated = await ensureEventDayRegistration(admin, badge.participant_id, eventDay.id);
+  } catch {
+    return Response.json({ error: "Não foi possível inscrever o participante neste dia." }, { status: 500 });
+  }
+
   const { data: existing } = await admin
     .from("entry_checkins")
     .select("checked_in_at")
@@ -150,6 +158,7 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
         event_day_id: eventDay.id,
         participant_id: badge.participant_id,
         participant_number: participant.participant_number,
+        registration_created: registrationCreated,
       },
     }),
     dispatchConfiguredWebhook(admin, {
@@ -172,6 +181,8 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
     participant,
     printPath: `/api/events/${eventId}/reception-credentials/participant/${badge.participant_id}`,
     checkedInAt,
-    message: `Check-in de ${participant.full_name} realizado com sucesso.`,
+    message: registrationCreated
+      ? `Inscrição e check-in de ${participant.full_name} realizados com sucesso.`
+      : `Check-in de ${participant.full_name} realizado com sucesso.`,
   });
 }

@@ -3,13 +3,13 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth/session";
+import { ensureEventDayRegistration } from "@/lib/registrations/ensure-event-day-registration";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const entryCheckinSchema = z.object({
   eventId: z.string().uuid(),
   eventDayId: z.string().uuid(),
   participantId: z.string().uuid(),
-  includeDay: z.union([z.literal("true"), z.literal("false")]),
   redirectUrl: z.string().min(1),
 });
 
@@ -25,7 +25,6 @@ export async function registerEntryCheckinAction(formData: FormData) {
     eventId: formData.get("event_id"),
     eventDayId: formData.get("event_day_id"),
     participantId: formData.get("participant_id"),
-    includeDay: String(formData.get("include_day") ?? "false"),
     redirectUrl: String(formData.get("redirect_url") ?? ""),
   });
 
@@ -63,11 +62,22 @@ export async function registerEntryCheckinAction(formData: FormData) {
     redirect(withNotice(parsed.data.redirectUrl, "error", "Participante já fez check-in neste dia."));
   }
 
+  let registrationCreated = false;
+  try {
+    registrationCreated = await ensureEventDayRegistration(
+      admin,
+      parsed.data.participantId,
+      parsed.data.eventDayId
+    );
+  } catch {
+    redirect(withNotice(parsed.data.redirectUrl, "error", "Não foi possível inscrever o participante neste dia."));
+  }
+
   const { error } = await admin.from("entry_checkins").insert({
     participant_id: parsed.data.participantId,
     event_day_id: parsed.data.eventDayId,
     operator_user_id: session.userId,
-    origin: "recepcao",
+    origin: registrationCreated ? "manual_include_day" : "recepcao",
   });
 
   if (error) {
@@ -81,9 +91,17 @@ export async function registerEntryCheckinAction(formData: FormData) {
       event_id: parsed.data.eventId,
       event_day_id: parsed.data.eventDayId,
       participant_id: parsed.data.participantId,
-      outside_intended_day: parsed.data.includeDay === "true",
+      registration_created: registrationCreated,
     },
   });
 
-  redirect(withNotice(parsed.data.redirectUrl, "success", "Check-in registrado com sucesso."));
+  redirect(
+    withNotice(
+      parsed.data.redirectUrl,
+      "success",
+      registrationCreated
+        ? "Inscrição e check-in registrados com sucesso."
+        : "Check-in registrado com sucesso."
+    )
+  );
 }

@@ -3,6 +3,183 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      sponsors: {
+        Row: {
+          id: string;
+          name: string;
+          username: string;
+          username_normalized: string;
+          password_hash: string;
+          encrypted_password: Json;
+          status: "active" | "inactive";
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          username: string;
+          password_hash: string;
+          encrypted_password: Json;
+          status?: "active" | "inactive";
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sponsors"]["Insert"]>;
+        Relationships: [];
+      };
+      sponsor_sessions: {
+        Row: {
+          id: string;
+          sponsor_id: string;
+          token_hash: string;
+          expires_at: string;
+          last_seen_at: string | null;
+          revoked_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          sponsor_id: string;
+          token_hash: string;
+          expires_at: string;
+          last_seen_at?: string | null;
+          revoked_at?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sponsor_sessions"]["Insert"]>;
+        Relationships: [];
+      };
+      sponsor_auth_attempts: {
+        Row: {
+          id: string;
+          username_normalized: string;
+          fingerprint_hash: string;
+          succeeded: boolean;
+          attempted_at: string;
+        };
+        Insert: {
+          id?: string;
+          username_normalized: string;
+          fingerprint_hash: string;
+          succeeded?: boolean;
+          attempted_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sponsor_auth_attempts"]["Insert"]>;
+        Relationships: [];
+      };
+      sponsor_team_members: {
+        Row: {
+          id: string;
+          member_number: number;
+          sponsor_id: string;
+          full_name: string;
+          job_title: string | null;
+          status: "active" | "inactive";
+          created_by_user_id: string | null;
+          created_by_sponsor: boolean;
+          updated_by_user_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          member_number?: number;
+          sponsor_id: string;
+          full_name: string;
+          job_title?: string | null;
+          status?: "active" | "inactive";
+          created_by_user_id?: string | null;
+          created_by_sponsor?: boolean;
+          updated_by_user_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sponsor_team_members"]["Insert"]>;
+        Relationships: [];
+      };
+      sponsor_participant_records: {
+        Row: {
+          id: string;
+          sponsor_id: string;
+          event_id: string;
+          participant_id: string;
+          captured_at: string;
+          received_at: string;
+          source: "badge_qr" | "offline_badge_qr";
+          client_capture_id: string | null;
+          invalidated_at: string | null;
+          invalidated_by: string | null;
+          invalidation_reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          sponsor_id: string;
+          event_id: string;
+          participant_id: string;
+          captured_at: string;
+          received_at?: string;
+          source?: "badge_qr" | "offline_badge_qr";
+          client_capture_id?: string | null;
+          invalidated_at?: string | null;
+          invalidated_by?: string | null;
+          invalidation_reason?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["sponsor_participant_records"]["Insert"]>;
+        Relationships: [];
+      };
+      event_sponsor_data_settings: {
+        Row: {
+          event_id: string;
+          share_email: boolean;
+          share_phone: boolean;
+          share_company: boolean;
+          share_profession: boolean;
+          share_job_title: boolean;
+          share_city: boolean;
+          share_state: boolean;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          event_id: string;
+          share_email?: boolean;
+          share_phone?: boolean;
+          share_company?: boolean;
+          share_profession?: boolean;
+          share_job_title?: boolean;
+          share_city?: boolean;
+          share_state?: boolean;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["event_sponsor_data_settings"]["Insert"]>;
+        Relationships: [];
+      };
+      user_password_vault: {
+        Row: {
+          user_id: string;
+          encrypted_password: Json;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          encrypted_password: Json;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["user_password_vault"]["Insert"]>;
+        Relationships: [];
+      };
       brevo_templates: {
         Row: {
           template_id: number;
@@ -463,6 +640,8 @@ export type Database = {
           document_number: string;
           email: string;
           phone: string;
+          company: string | null;
+          job_title: string | null;
           state: string;
           city: string;
           profession: string;
@@ -477,6 +656,8 @@ export type Database = {
           document_number: string;
           email: string;
           phone: string;
+          company?: string | null;
+          job_title?: string | null;
           state: string;
           city: string;
           profession: string;
@@ -490,6 +671,8 @@ export type Database = {
           document_number?: string;
           email?: string;
           phone?: string;
+          company?: string | null;
+          job_title?: string | null;
           state?: string;
           city?: string;
           profession?: string;
@@ -503,18 +686,27 @@ export type Database = {
           id: string;
           participant_id: string;
           event_day_id: string;
+          registration_source: "legacy" | "public_registration" | "reception" | "admin" | "import";
+          data_sharing_notice_version: string | null;
+          data_sharing_notice_acknowledged_at: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           participant_id: string;
           event_day_id: string;
+          registration_source?: "legacy" | "public_registration" | "reception" | "admin" | "import";
+          data_sharing_notice_version?: string | null;
+          data_sharing_notice_acknowledged_at?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           participant_id?: string;
           event_day_id?: string;
+          registration_source?: "legacy" | "public_registration" | "reception" | "admin" | "import";
+          data_sharing_notice_version?: string | null;
+          data_sharing_notice_acknowledged_at?: string | null;
           created_at?: string;
         };
         Relationships: [];

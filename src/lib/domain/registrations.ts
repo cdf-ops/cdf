@@ -18,6 +18,9 @@ export { normalizeDocumentNumber };
 type RegistrationOptions = {
   actorUserId?: string | null;
   auditAction?: string;
+  registrationSource?: "legacy" | "public_registration" | "reception" | "admin" | "import";
+  dataSharingNoticeVersion?: string | null;
+  dataSharingNoticeAcknowledgedAt?: string | null;
 };
 
 export async function registerParticipantInEventDays(
@@ -90,6 +93,9 @@ export async function registerParticipantInEventDays(
     id: randomUUID(),
     participant_id: participantId,
     event_day_id: eventDayId,
+    registration_source: options?.registrationSource ?? "legacy",
+    data_sharing_notice_version: options?.dataSharingNoticeVersion ?? null,
+    data_sharing_notice_acknowledged_at: options?.dataSharingNoticeAcknowledgedAt ?? null,
   }));
 
   const { error: registrationError } = await admin

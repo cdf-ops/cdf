@@ -7,8 +7,8 @@ import { requireSession } from "@/lib/auth/session";
 import { createAssetSignedUrl } from "@/lib/certificates/assets";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { updateExhibitorDataSettingsAction } from "@/app/(dashboard)/events/[eventId]/settings/exhibitor-data-actions";
-import { getExhibitorDataSettings } from "@/lib/exhibitors/data-sharing";
+import { updateSponsorDataSettingsAction } from "@/app/(dashboard)/events/[eventId]/settings/sponsor-data-actions";
+import { getSponsorDataSettings } from "@/lib/sponsors/data-sharing";
 
 type EventSettingsPageProps = {
   params: Promise<{ eventId: string }>;
@@ -47,9 +47,9 @@ export default async function EventSettingsPage({ params, searchParams }: EventS
   }
 
   const admin = createAdminClient();
-  const [logoUrl, exhibitorDataSettings] = await Promise.all([
+  const [logoUrl, sponsorDataSettings] = await Promise.all([
     createAssetSignedUrl(admin, typedEvent.event_logo_path),
-    getExhibitorDataSettings(admin, typedEvent.id),
+    getSponsorDataSettings(admin, typedEvent.id),
   ]);
 
   return (
@@ -105,25 +105,27 @@ export default async function EventSettingsPage({ params, searchParams }: EventS
             <div className="surface-card mt-6 rounded-2xl p-6 md:p-8">
               <div className="max-w-2xl">
                 <p className="text-sm font-semibold uppercase tracking-wide text-[var(--outline)]">
-                  Privacidade e Expositores
+                  Dados compartilhados com patrocinadores
                 </p>
                 <h2 className="mt-1 font-headline text-2xl font-extrabold text-[var(--foreground)]">
-                  Dados liberados após a visita ao stand
+                  Dados liberados após o registro no estande
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-muted">
-                  Nome e número único são o padrão. Os campos abaixo somente aparecem quando o participante
-                  autorizou dados adicionais no formulário. CPF e outros documentos nunca são compartilhados.
+                  Nome e horário do registro ficam sempre disponíveis. Os campos abaixo seguem a configuração atual
+                  do evento, inclusive no histórico. CPF, RG e outros documentos nunca são compartilhados.
                 </p>
               </div>
-              <form action={updateExhibitorDataSettingsAction} className="mt-5">
+              <form action={updateSponsorDataSettingsAction} className="mt-5">
                 <input type="hidden" name="event_id" value={typedEvent.id} />
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[
-                    ["share_email", "E-mail", exhibitorDataSettings.share_email],
-                    ["share_phone", "Telefone", exhibitorDataSettings.share_phone],
-                    ["share_profession", "Profissão", exhibitorDataSettings.share_profession],
-                    ["share_city", "Cidade", exhibitorDataSettings.share_city],
-                    ["share_state", "Estado", exhibitorDataSettings.share_state],
+                    ["share_email", "E-mail", sponsorDataSettings.share_email],
+                    ["share_phone", "Telefone", sponsorDataSettings.share_phone],
+                    ["share_company", "Empresa", sponsorDataSettings.share_company],
+                    ["share_profession", "Profissão", sponsorDataSettings.share_profession],
+                    ["share_job_title", "Cargo", sponsorDataSettings.share_job_title],
+                    ["share_city", "Cidade", sponsorDataSettings.share_city],
+                    ["share_state", "Estado", sponsorDataSettings.share_state],
                   ].map(([name, label, checked]) => (
                     <label
                       key={String(name)}

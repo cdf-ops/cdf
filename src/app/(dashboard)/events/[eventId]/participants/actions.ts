@@ -80,7 +80,8 @@ export async function createParticipantAction(
       },
       {
         actorUserId: session.userId,
-        auditAction: "RECEPTION_REGISTRATION_COMPLETED",
+        auditAction: session.role === "recepcao" ? "RECEPTION_REGISTRATION_COMPLETED" : "ADMIN_REGISTRATION_COMPLETED",
+        registrationSource: session.role === "recepcao" ? "reception" : "admin",
       }
     );
 

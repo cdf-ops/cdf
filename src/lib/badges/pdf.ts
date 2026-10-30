@@ -219,6 +219,15 @@ export async function generateBadgePdf(admin: SupabaseClient<Database>, input: G
       }
       if (element.kind === "text") {
         const size = element.fontSize ?? 18;
+        if (element.id === "personName") {
+          page.drawRectangle({
+            x: element.x,
+            y: pdfY,
+            width: element.width,
+            height: element.height,
+            color: rgb(1, 1, 1),
+          });
+        }
         drawCenteredText(
           page,
           bold,
