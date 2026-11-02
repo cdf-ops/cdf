@@ -17,6 +17,8 @@ export type BadgePdfParticipant = {
   participantNumber: number | string;
   qrSlug: string;
   categoryLabel?: string;
+  sponsorCompany?: string | null;
+  sponsorJobTitle?: string | null;
 };
 
 export type BadgePdfEvent = {
@@ -194,6 +196,8 @@ export async function generateBadgePdf(admin: SupabaseClient<Database>, input: G
     const dynamicValues: Record<string, string> = {
       category: participant.categoryLabel ?? settings.participant_label,
       personName: formatCredentialName(participant.fullName),
+      sponsorCompany: participant.sponsorCompany ?? "",
+      sponsorJobTitle: participant.sponsorJobTitle ?? "",
       personNumber: String(participant.participantNumber),
       eventName: input.event.name,
       eventLocation: input.event.location,

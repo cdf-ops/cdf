@@ -60,7 +60,16 @@ export default async function SponsorDetailPage({ params, searchParams }: Sponso
   const selectedRecords = (records ?? []).filter((record) => record.event_id === selectedEventId);
   const showInactiveMembers = query.equipe === "todos";
   const visibleMembers = (members ?? []).filter((member) => showInactiveMembers || member.status === "active");
+  const activeMembers = (members ?? []).filter((member) => member.status === "active");
   const eventDates = (selectedEvent?.event_days ?? []).map((day) => day.date).sort();
+  const canPrint = Boolean(
+    selectedEvent?.status === "ativo" &&
+    eventDates.length &&
+    eventDates[eventDates.length - 1] >= getSaoPauloDateKey()
+  );
+  const printAction = selectedEventId
+    ? `/api/patrocinadores/${sponsor.id}/eventos/${selectedEventId}/credenciais`
+    : "";
 
   return (
     <section className="space-y-6">
@@ -91,6 +100,19 @@ export default async function SponsorDetailPage({ params, searchParams }: Sponso
 
       <SponsorDetailsForm sponsor={{ id: sponsor.id, name: sponsor.name, username: sponsor.username, status: sponsor.status }} />
       <SponsorPasswordManagement sponsorId={sponsor.id} canReveal={session.role === "super_adm"} />
+
+      <div className="surface-card rounded-xl p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="font-headline text-xl font-bold">Impressão de credenciais</h2><p className="mt-1 text-sm text-muted">Usa a arte do evento em contexto, sem criar vínculo entre o patrocinador e o evento.</p></div>{selectedEvent ? <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">{selectedEvent.name}</span> : null}</div>
+        {selectedEvent && printAction && canPrint ? (
+          <form action={printAction} method="post" target="_blank" className="mt-4">
+            <div className="divide-y divide-[var(--outline-variant)]/30 rounded-xl border border-[var(--outline-variant)]/40 px-4">
+              {activeMembers.map((member) => <div key={member.id} className="grid gap-3 py-3 sm:grid-cols-[auto_120px_1fr_1fr_auto] sm:items-center"><input aria-label={`Selecionar ${member.full_name}`} type="checkbox" name="member_ids" value={member.id} defaultChecked className="size-5 accent-[var(--primary)]" /><span className="font-mono text-sm font-bold">{memberCode(member.member_number)}</span><strong>{member.full_name}</strong><span className="text-sm text-muted">{member.job_title ?? "Sem cargo"}</span><a href={`${printAction}?membro=${member.id}`} target="_blank" rel="noreferrer" className="rounded-xl border bg-white px-3 py-2 text-center text-sm font-semibold text-[var(--primary)]">Individual</a></div>)}
+              {!activeMembers.length ? <p className="py-8 text-center text-sm text-muted">Nenhum integrante ativo para imprimir.</p> : null}
+            </div>
+            <button disabled={!activeMembers.length} className="gradient-primary mt-4 min-h-11 rounded-xl px-5 text-sm font-semibold text-white disabled:opacity-40">Imprimir selecionados em lote</button>
+          </form>
+        ) : <p className="mt-4 text-sm text-muted">Selecione um evento ativo atual ou futuro para preparar as credenciais.</p>}
+      </div>
 
       <div className="surface-card rounded-xl p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="font-headline text-xl font-bold">Equipe permanente</h2><p className="mt-1 text-sm text-muted">Integrantes servem somente para impressão de credenciais e não são participantes do evento.</p></div><Link href={`/patrocinadores/${sponsor.id}?${selectedEventId ? `evento=${selectedEventId}&` : ""}equipe=${showInactiveMembers ? "ativos" : "todos"}`} className="text-sm font-semibold text-[var(--primary)]">{showInactiveMembers ? "Mostrar somente ativos" : "Mostrar inativos"}</Link></div>

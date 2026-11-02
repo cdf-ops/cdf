@@ -6,7 +6,7 @@ import { requireSession } from "@/lib/auth/session";
 export default async function DashboardLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const session = await requireSession(["super_adm", "organizador", "recepcao", "expositor"]);
+  const session = await requireSession(["super_adm", "organizador", "recepcao", "sorteador", "expositor"]);
 
   return (
     <div className="min-h-screen bg-[var(--background)]">

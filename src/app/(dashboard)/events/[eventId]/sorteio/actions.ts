@@ -41,7 +41,7 @@ function withNotice(url: string, type: "success" | "error", message: string) {
 }
 
 export async function executeRaffleAction(formData: FormData) {
-  const session = await requireSession(["super_adm", "organizador"]);
+  const session = await requireSession(["super_adm", "organizador", "sorteador"]);
   const parsed = executeRaffleSchema.safeParse({
     eventId: formData.get("event_id"),
     eventDayId: formData.get("event_day_id"),
@@ -71,7 +71,7 @@ export async function executeRaffleAction(formData: FormData) {
 }
 
 export async function deleteRaffleAction(formData: FormData) {
-  const session = await requireSession(["super_adm"]);
+  const session = await requireSession(["super_adm", "sorteador"]);
   const parsed = deleteRaffleSchema.safeParse({
     raffleId: formData.get("raffle_id"),
     eventId: formData.get("event_id"),
@@ -108,7 +108,7 @@ export async function deleteRaffleAction(formData: FormData) {
 }
 
 export async function saveRaffleSponsorBannerAction(formData: FormData) {
-  const session = await requireSession(["super_adm", "organizador"]);
+  const session = await requireSession(["super_adm", "organizador", "sorteador"]);
   const parsed = sponsorBannerSchema.safeParse({
     eventId: formData.get("event_id"),
     redirectUrl: formData.get("redirect_url"),
@@ -169,7 +169,7 @@ export async function saveRaffleSponsorBannerAction(formData: FormData) {
 }
 
 export async function saveRaffleDisplaySettingsAction(formData: FormData) {
-  const session = await requireSession(["super_adm", "organizador"]);
+  const session = await requireSession(["super_adm", "organizador", "sorteador"]);
   const parsed = raffleDisplaySettingsSchema.safeParse({
     eventId: formData.get("event_id"),
     redirectUrl: formData.get("redirect_url"),

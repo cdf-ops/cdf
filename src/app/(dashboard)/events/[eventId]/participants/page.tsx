@@ -31,7 +31,7 @@ type ParticipantRow = {
 };
 
 export default async function ParticipantsPage({ params, searchParams }: ParticipantsPageProps) {
-  const session = await requireSession(["super_adm", "organizador", "recepcao", "expositor"]);
+  const session = await requireSession(["super_adm", "organizador", "expositor"]);
   const { eventId } = await params;
   const { q = "" } = await searchParams;
   const searchedParticipantNumber = parseParticipantNumberSearch(q);

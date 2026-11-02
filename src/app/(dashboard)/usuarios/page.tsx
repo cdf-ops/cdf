@@ -6,8 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { listAllAuthUsers } from "@/lib/users/auth-admin";
 import { CreateUserForm } from "@/app/(dashboard)/usuarios/create-user-form";
 import { updateUserProfileAction } from "@/app/(dashboard)/usuarios/actions";
-import { EmergencyResetForm } from "@/app/(dashboard)/usuarios/emergency-reset-form";
-import { isExhibitorAccessLinkActive } from "@/lib/exhibitors/access-status";
+import { PasswordManagement } from "@/app/(dashboard)/usuarios/password-management";
+import type { AssignableAppRole } from "@/lib/auth/roles";
 
 type UsersPageProps = {
   searchParams: Promise<{
@@ -19,19 +19,12 @@ type UsersPageProps = {
 
 type ProfileRow = {
   id: string;
-  role: "super_adm" | "organizador" | "recepcao" | "expositor";
+  role: AssignableAppRole;
   status: "active" | "inactive";
   password_change_required: boolean;
 };
 
-type ExhibitorAccessLink = {
-  user_id: string;
-  status: "active" | "suspended";
-  access_valid_until: string;
-  emergency_access_until: string | null;
-};
-
-function roleLabel(role: "super_adm" | "organizador" | "recepcao" | "expositor") {
+function roleLabel(role: AssignableAppRole) {
   switch (role) {
     case "super_adm":
       return "Super ADM";
@@ -39,8 +32,8 @@ function roleLabel(role: "super_adm" | "organizador" | "recepcao" | "expositor")
       return "Organizador";
     case "recepcao":
       return "Recepção";
-    case "expositor":
-      return "Expositor";
+    case "sorteador":
+      return "Sorteador";
     default:
       return role;
   }
@@ -77,19 +70,6 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
       : [];
 
   const profileMap = new Map(profileChunks.flat().map((profile) => [profile.id, profile]));
-  const { data: exhibitorLinksData } = userIds.length
-    ? await admin
-        .from("exhibitor_users")
-        .select("user_id, status, access_valid_until, emergency_access_until")
-        .in("user_id", userIds)
-    : { data: [] };
-  const exhibitorLinksByUser = new Map<string, ExhibitorAccessLink[]>();
-  (exhibitorLinksData ?? []).forEach((link) => {
-    const current = exhibitorLinksByUser.get(link.user_id) ?? [];
-    current.push(link);
-    exhibitorLinksByUser.set(link.user_id, current);
-  });
-
   const rows = authUsers
     .map((user) => {
       const profile = profileMap.get(user.id);
@@ -100,15 +80,11 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
         status: profile?.status ?? "active",
         hasProfile: Boolean(profile),
         passwordChangeRequired: profile?.password_change_required ?? false,
-        exhibitorAccessActive:
-          profile?.role === "expositor"
-            ? (exhibitorLinksByUser.get(user.id) ?? []).some((link) => isExhibitorAccessLinkActive(link))
-            : true,
         lastSignInAt: user.last_sign_in_at,
         createdAt: user.created_at,
       };
     })
-    .filter((row) => session.role === "super_adm" || ["recepcao", "expositor"].includes(row.role))
+    .filter((row) => session.role === "super_adm" || ["recepcao", "sorteador"].includes(row.role))
     .filter((row) => {
       if (!queryText) {
         return true;
@@ -129,7 +105,7 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
       <div className="surface-card rounded-xl p-5">
         <h1 className="font-headline text-3xl font-extrabold tracking-tight text-[var(--foreground)]">Usuários</h1>
         <p className="mt-1 text-sm text-muted">
-          Gestão de perfis, senhas temporárias e validade dos acessos.
+          Gestão de perfis, status e senhas administradas.
         </p>
       </div>
 
@@ -206,7 +182,7 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                         <option value="super_adm">Super ADM</option>
                         <option value="organizador">Organizador</option>
                         <option value="recepcao">Recepção</option>
-                        <option value="expositor">Expositor</option>
+                        <option value="sorteador">Sorteador</option>
                       </select>
                       <select
                         name="status"
@@ -235,16 +211,7 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                     >
                       {row.status === "active" ? "Ativo" : "Inativo"}
                     </span>
-                    {row.passwordChangeRequired ? (
-                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">
-                        Troca de senha pendente
-                      </span>
-                    ) : null}
-                    {row.role === "expositor" && !row.exhibitorAccessActive ? (
-                      <span className="ml-2 rounded-full bg-red-100 px-2 py-1 text-xs font-bold text-red-700">
-                        Vínculo vencido
-                      </span>
-                    ) : null}
+                    {row.passwordChangeRequired ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">Senha legada pendente</span> : null}
                   </td>
                   <td className="px-4 py-3">
                     <p>{row.lastSignInAt ? formatSaoPauloDateTime(row.lastSignInAt) : "-"}</p>
@@ -252,7 +219,7 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                   </td>
                   <td className="px-4 py-3 text-right align-top">
                     {row.status === "active" && row.userId !== session.userId ? (
-                      <EmergencyResetForm userId={row.userId} email={row.email} />
+                      <PasswordManagement userId={row.userId} email={row.email} canReveal={session.role === "super_adm"} />
                     ) : (
                       <span className="text-xs text-muted">Sem ação disponível</span>
                     )}

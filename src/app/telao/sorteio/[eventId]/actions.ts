@@ -18,7 +18,7 @@ export async function executeRaffleRoundAction(input: {
   winnersCount: number;
   includePreviousWinners: boolean;
 }) {
-  const session = await requireSession(["super_adm", "organizador"]);
+  const session = await requireSession(["super_adm", "organizador", "sorteador"]);
   const parsed = executeRaffleRoundSchema.safeParse(input);
 
   if (!parsed.success) {

@@ -35,7 +35,7 @@ function getInitials(name?: string) {
 }
 
 export default async function DayListPage({ params, searchParams }: DayListPageProps) {
-  await requireSession(["super_adm", "organizador", "recepcao"]);
+  await requireSession(["super_adm", "organizador"]);
   const { eventId } = await params;
   const { day, q = "" } = await searchParams;
   const admin = createAdminClient();

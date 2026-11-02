@@ -21,7 +21,7 @@ type RafflePageProps = {
 };
 
 export default async function RafflePage({ params, searchParams }: RafflePageProps) {
-  const session = await requireSession(["super_adm", "organizador"]);
+  const session = await requireSession(["super_adm", "organizador", "sorteador"]);
   const { eventId } = await params;
   const { day, notice, notice_type } = await searchParams;
   const admin = createAdminClient();
@@ -241,9 +241,9 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
       <div className="surface-card rounded-2xl p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="font-headline text-2xl font-bold tracking-tight text-[var(--foreground)]">Histórico de Rodadas</h3>
-          <Link href={`/events/${eventId}/relatorios`} className="text-sm font-semibold text-[var(--primary)]">
+          {session.role !== "sorteador" ? <Link href={`/events/${eventId}/relatorios`} className="text-sm font-semibold text-[var(--primary)]">
             Exportar Relatório
-          </Link>
+          </Link> : null}
         </div>
 
         <div className="mt-4 grid gap-3">
@@ -261,7 +261,7 @@ export default async function RafflePage({ params, searchParams }: RafflePagePro
                     </p>
                   </div>
 
-                  {session.role === "super_adm" ? (
+                  {["super_adm", "sorteador"].includes(session.role) ? (
                     <form action={deleteRaffleAction}>
                       <input type="hidden" name="raffle_id" value={raffle.id} />
                       <input type="hidden" name="event_id" value={eventId} />

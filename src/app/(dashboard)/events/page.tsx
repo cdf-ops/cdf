@@ -51,7 +51,7 @@ function statusBadgeClass(status: "rascunho" | "ativo" | "encerrado" | "arquivad
 }
 
 export default async function EventsPage({ searchParams }: EventsPageProps) {
-  const session = await requireSession(["super_adm", "organizador", "recepcao", "expositor"]);
+  const session = await requireSession(["super_adm", "organizador", "recepcao", "sorteador", "expositor"]);
   const params = await searchParams;
   const queryText = (params.q ?? "").trim();
   const selectedStatus = params.status === "arquivado" && session.role !== "super_adm" ? "todos" : (params.status ?? "todos");
@@ -144,7 +144,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           const dateList = (event.event_days ?? []).map((item) => item.date);
           const entryHref =
             session.role === "recepcao"
-              ? `/events/${event.id}/checkin-recepcao`
+              ? `/recepcao/${event.id}`
+              : session.role === "sorteador"
+                ? `/events/${event.id}/sorteio`
               : session.role === "expositor"
                 ? `/events/${event.id}/checkin-expositor`
                 : `/events/${event.id}/settings`;
@@ -201,7 +203,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               const dateList = (event.event_days ?? []).map((item) => item.date);
               const entryHref =
                 session.role === "recepcao"
-                  ? `/events/${event.id}/checkin-recepcao`
+                  ? `/recepcao/${event.id}`
+                  : session.role === "sorteador"
+                    ? `/events/${event.id}/sorteio`
                   : session.role === "expositor"
                     ? `/events/${event.id}/checkin-expositor`
                     : `/events/${event.id}/settings`;

@@ -25,6 +25,8 @@ type BadgeLayoutEditorProps = {
 const preview: Record<BadgeElementId, string> = {
   category: "PARTICIPANTE",
   personName: "Daniel Jesus",
+  sponsorCompany: "Samsung",
+  sponsorJobTitle: "Gerente comercial",
   checkinQr: "QR CHECK-IN",
   personNumber: "9668",
   eventLogo: "LOGO DO EVENTO",

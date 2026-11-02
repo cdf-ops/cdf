@@ -10,7 +10,7 @@ type RaffleTeleprompterPageProps = {
 };
 
 export default async function RaffleTeleprompterPage({ params, searchParams }: RaffleTeleprompterPageProps) {
-  await requireSession(["super_adm", "organizador"]);
+  await requireSession(["super_adm", "organizador", "sorteador"]);
   const { eventId } = await params;
   const { day } = await searchParams;
   const admin = createAdminClient();

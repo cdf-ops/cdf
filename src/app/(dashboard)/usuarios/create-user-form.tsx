@@ -15,10 +15,10 @@ export function CreateUserForm() {
     <form action={action} className="surface-card rounded-xl p-5">
       <h3 className="font-headline text-lg font-bold text-[var(--foreground)]">Novo Usuário</h3>
       <p className="mt-1 text-sm text-muted">
-        Crie usuários administrativos ou de recepção. Expositores são cadastrados dentro da empresa.
+        Crie o acesso já com uma senha definida pela administração. O usuário não precisará trocá-la no primeiro login.
       </p>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-[1.4fr_0.8fr_auto]">
+      <div className="mt-4 grid gap-3 md:grid-cols-[1.3fr_0.7fr_1fr_auto]">
         <input
           name="email"
           type="email"
@@ -34,7 +34,17 @@ export function CreateUserForm() {
           <option value="super_adm">Super ADM</option>
           <option value="organizador">Organizador</option>
           <option value="recepcao">Recepção</option>
+          <option value="sorteador">Sorteador</option>
         </select>
+        <input
+          name="password"
+          type="password"
+          required
+          minLength={6}
+          autoComplete="new-password"
+          placeholder="Senha inicial"
+          className="rounded-lg border border-[var(--outline-variant)]/55 bg-white px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
+        />
         <button
           type="submit"
           disabled={isPending}

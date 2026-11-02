@@ -9,6 +9,8 @@ export type BadgeQuadrant = "front" | "social" | "institutional" | "schedule";
 export type BadgeElementId =
   | "category"
   | "personName"
+  | "sponsorCompany"
+  | "sponsorJobTitle"
   | "checkinQr"
   | "personNumber"
   | "eventLogo"
@@ -43,8 +45,10 @@ export const DEFAULT_BADGE_LAYOUT: BadgeLayout = {
     { id: "eventLogo", label: "Logo do evento", quadrant: "front", kind: "image", x: 48, y: 24, width: 202, height: 70, visible: true },
     { id: "category", label: "Categoria", quadrant: "front", kind: "text", x: 38, y: 98, width: 222, height: 28, fontSize: 15, color: "#09050a", visible: true },
     { id: "personName", label: "Nome", quadrant: "front", kind: "text", x: 28, y: 142, width: 242, height: 38, fontSize: 22, color: "#09050a", visible: true },
+    { id: "sponsorCompany", label: "Empresa do patrocinador", quadrant: "front", kind: "text", x: 38, y: 181, width: 222, height: 18, fontSize: 11, color: "#09050a", visible: true },
     { id: "checkinQr", label: "QR de check-in", quadrant: "front", kind: "qr", x: 92, y: 202, width: 114, height: 114, visible: true },
     { id: "personNumber", label: "Número", quadrant: "front", kind: "text", x: 92, y: 326, width: 114, height: 34, fontSize: 20, color: "#09050a", visible: true },
+    { id: "sponsorJobTitle", label: "Cargo do patrocinador", quadrant: "front", kind: "text", x: 38, y: 382, width: 222, height: 18, fontSize: 10, color: "#09050a", visible: true },
     { id: "socialQr", label: "QR das redes", quadrant: "social", kind: "qr", x: 456, y: 55, width: 82, height: 82, visible: true },
     { id: "facebook", label: "Facebook", quadrant: "social", kind: "text", x: 326, y: 182, width: 240, height: 42, fontSize: 16, color: "#09050a", visible: true },
     { id: "instagram", label: "Instagram", quadrant: "social", kind: "text", x: 326, y: 242, width: 240, height: 42, fontSize: 16, color: "#09050a", visible: true },

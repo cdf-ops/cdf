@@ -14,7 +14,7 @@ type EventScopedLayoutProps = {
 };
 
 export default async function EventScopedLayout({ children, params }: EventScopedLayoutProps) {
-  const session = await requireSession(["super_adm", "organizador", "recepcao", "expositor"]);
+  const session = await requireSession(["super_adm", "organizador", "recepcao", "sorteador", "expositor"]);
   const { eventId } = await params;
 
   const supabase = await createClient();
@@ -97,7 +97,7 @@ export default async function EventScopedLayout({ children, params }: EventScope
           label: "Lista do dia",
           roles: ["super_adm", "organizador", "recepcao"],
         },
-        { href: `/events/${eventId}/sorteio`, label: "Sorteio", roles: ["super_adm", "organizador"] },
+        { href: `/events/${eventId}/sorteio`, label: "Sorteio", roles: ["super_adm", "organizador", "sorteador"] },
       ],
     },
     {

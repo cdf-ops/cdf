@@ -1,6 +1,5 @@
 import type { User } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generateTemporaryPassword } from "@/lib/users/passwords";
 
 const DEFAULT_PER_PAGE = 200;
 const MAX_PAGES = 20;
@@ -38,17 +37,16 @@ export async function findAuthUserByEmail(email: string) {
 
 export async function createAuthUserByEmail(
   email: string,
-  options?: {
+  options: {
+    password: string;
     source?: string;
   }
-): Promise<{ user: User; temporaryPassword: string }> {
+): Promise<{ user: User }> {
   const admin = createAdminClient();
   const normalizedEmail = normalizeEmail(email);
-  const temporaryPassword = generateTemporaryPassword();
-
   const { data, error } = await admin.auth.admin.createUser({
     email: normalizedEmail,
-    password: temporaryPassword,
+    password: options.password,
     email_confirm: true,
     user_metadata: {
       source: options?.source ?? "users_ui",
@@ -59,8 +57,5 @@ export async function createAuthUserByEmail(
     throw new Error("Não foi possível criar o usuário no Auth.");
   }
 
-  return {
-    user: data.user,
-    temporaryPassword,
-  };
+  return { user: data.user };
 }

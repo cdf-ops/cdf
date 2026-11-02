@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isExhibitorAccessLinkActive } from "@/lib/exhibitors/access-status";
+import { storeUserPassword } from "@/lib/users/password-vault";
 
 export type ChangePasswordState = {
   error: string | null;
@@ -67,6 +67,7 @@ export async function changePasswordAction(
     .eq("id", user.id)
     .maybeSingle();
   if (!profile) return { error: "Perfil de acesso não encontrado." };
+  if (profile.role !== "super_adm") return { error: "Somente Super Administradores podem alterar a própria senha." };
 
   if (parsed.data.recovery) {
     const { data: claimsData } = await supabase.auth.getClaims();
@@ -104,21 +105,13 @@ export async function changePasswordAction(
     return { error: "A senha mudou, mas não foi possível liberar o acesso. Procure a organização." };
   }
 
+  await storeUserPassword(admin, { userId: user.id, password: parsed.data.newPassword, updatedBy: user.id });
+
   await admin.from("audit_logs").insert({
     actor_user_id: user.id,
     action: parsed.data.recovery ? "PASSWORD_CHANGED_AFTER_RECOVERY" : "TEMPORARY_PASSWORD_REPLACED",
     context: { user_id: user.id },
   });
-
-  if (profile.role === "expositor") {
-    const { data: links } = await admin
-      .from("exhibitor_users")
-      .select("status, access_valid_until, emergency_access_until")
-      .eq("user_id", user.id);
-    if (!(links ?? []).some((link) => isExhibitorAccessLinkActive(link))) {
-      redirect("/renovar-acesso");
-    }
-  }
 
   redirect("/events");
 }

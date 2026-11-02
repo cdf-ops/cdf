@@ -9,6 +9,7 @@ export default async function ChangePasswordPage({
 }) {
   const account = await getAccountState();
   if (!account) redirect("/login");
+  if (account.role !== "super_adm") redirect("/events");
   const { recovery } = await searchParams;
   const isRecovery = recovery === "1";
   if (!account.passwordChangeRequired && !isRecovery) redirect("/events");

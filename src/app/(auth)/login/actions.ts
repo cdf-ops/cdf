@@ -57,7 +57,9 @@ export async function loginAction(_: LoginState, formData: FormData): Promise<Lo
     }
 
     if (profile.password_change_required) {
-      redirect("/alterar-senha");
+      if (profile.role === "super_adm") redirect("/alterar-senha");
+      await supabase.auth.signOut({ scope: "local" });
+      return { error: "A administração precisa redefinir a senha deste usuário." };
     }
 
     if (profile.role === "expositor") {

@@ -102,6 +102,26 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["sponsor_team_members"]["Insert"]>;
         Relationships: [];
       };
+      sponsor_team_credentials: {
+        Row: {
+          id: string;
+          sponsor_id: string;
+          team_member_id: string;
+          event_id: string;
+          qr_slug: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          sponsor_id: string;
+          team_member_id: string;
+          event_id: string;
+          qr_slug: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sponsor_team_credentials"]["Insert"]>;
+        Relationships: [];
+      };
       sponsor_participant_records: {
         Row: {
           id: string;
@@ -323,7 +343,7 @@ export type Database = {
       user_profiles: {
         Row: {
           id: string;
-          role: "super_adm" | "organizador" | "recepcao" | "expositor";
+          role: "super_adm" | "organizador" | "recepcao" | "sorteador" | "expositor";
           status: "active" | "inactive";
           password_change_required: boolean;
           temporary_password_issued_at: string | null;
@@ -333,7 +353,7 @@ export type Database = {
         };
         Insert: {
           id: string;
-          role?: "super_adm" | "organizador" | "recepcao" | "expositor";
+          role?: "super_adm" | "organizador" | "recepcao" | "sorteador" | "expositor";
           status?: "active" | "inactive";
           password_change_required?: boolean;
           temporary_password_issued_at?: string | null;
@@ -343,7 +363,7 @@ export type Database = {
         };
         Update: {
           id?: string;
-          role?: "super_adm" | "organizador" | "recepcao" | "expositor";
+          role?: "super_adm" | "organizador" | "recepcao" | "sorteador" | "expositor";
           status?: "active" | "inactive";
           password_change_required?: boolean;
           temporary_password_issued_at?: string | null;

@@ -7,6 +7,7 @@ export async function proxy(request: NextRequest) {
 
   if (
     (path.startsWith("/events") ||
+      path.startsWith("/recepcao") ||
       path.startsWith("/expositores") ||
       path.startsWith("/usuarios") ||
       path.startsWith("/participantes") ||
@@ -35,6 +36,7 @@ export const config = {
   matcher: [
     "/",
     "/events/:path*",
+    "/recepcao/:path*",
     "/expositores/:path*",
     "/usuarios/:path*",
     "/participantes/:path*",
