@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "verify:badge-pdf": "node scripts/verify-badge-pdf.mjs",
     "verify:environment": "node scripts/verify-environment-targets.mjs"
   },
   "dependencies": {
