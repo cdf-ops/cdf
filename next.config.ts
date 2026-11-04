@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    "/api/events/**": ["./public/fonts/*.woff"],
+    "/api/patrocinador/**": ["./public/fonts/*.woff"],
+    "/api/patrocinadores/**": ["./public/fonts/*.woff"],
+    "/credencial/**": ["./public/fonts/*.woff"],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "12mb",

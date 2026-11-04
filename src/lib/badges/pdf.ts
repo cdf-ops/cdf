@@ -1,3 +1,6 @@
+import * as fontkit from "@pdf-lib/fontkit";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFFont, type PDFPage } from "pdf-lib";
 import QRCode from "qrcode";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -5,12 +8,24 @@ import type { Database } from "@/lib/supabase/database.types";
 import { EVENT_ASSETS_BUCKET } from "@/lib/certificates/assets";
 import { getApplicationBaseUrl } from "@/lib/badges/tokens";
 import { resolveBadgeSettings, type BadgeSettings } from "@/lib/badges/settings";
-import { BADGE_PAGE_HEIGHT, parseBadgeLayout } from "@/lib/badges/layout";
+import {
+  BADGE_FONT_FAMILIES,
+  BADGE_PAGE_HEIGHT,
+  parseBadgeLayout,
+  type BadgeFontFamily,
+} from "@/lib/badges/layout";
 
 export const A4_WIDTH = 595.28;
 export const A4_HEIGHT = 841.89;
 const PANEL_WIDTH = A4_WIDTH / 2;
 const PANEL_HEIGHT = A4_HEIGHT / 2;
+const BADGE_FONT_FILES: Record<BadgeFontFamily, string> = {
+  Inter: "inter-700.woff",
+  Manrope: "manrope-700.woff",
+  Montserrat: "montserrat-700.woff",
+  Poppins: "poppins-700.woff",
+  Roboto: "roboto-700.woff",
+};
 
 export type BadgePdfParticipant = {
   fullName: string;
@@ -167,12 +182,25 @@ function drawFoldGuides(page: PDFPage) {
 
 export async function generateBadgePdf(admin: SupabaseClient<Database>, input: GenerateBadgePdfInput) {
   const pdf = await PDFDocument.create();
+  pdf.registerFontkit(fontkit);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const logo = await embedLogo(pdf, await downloadLogo(admin, input.event.eventLogoPath));
   const settings = resolveBadgeSettings(input.settings);
   const background = await embedLogo(pdf, await downloadLogo(admin, settings.background_path));
   const configuredLayout = parseBadgeLayout(settings.layout);
+  const usedFontFamilies = new Set<BadgeFontFamily>(
+    configuredLayout.elements
+      .filter((element) => element.kind === "text" && element.visible)
+      .map((element) => element.fontFamily ?? "Inter")
+  );
+  const badgeFonts = new Map<BadgeFontFamily, PDFFont>();
+  await Promise.all(
+    BADGE_FONT_FAMILIES.filter((family) => usedFontFamilies.has(family)).map(async (family) => {
+      const bytes = await readFile(join(process.cwd(), "public", "fonts", BADGE_FONT_FILES[family]));
+      badgeFonts.set(family, await pdf.embedFont(bytes, { subset: true }));
+    })
+  );
   const primary = colorFromHex(settings.primary_color);
   const secondary = colorFromHex(settings.secondary_color);
   const baseUrl = getApplicationBaseUrl();
@@ -234,7 +262,7 @@ export async function generateBadgePdf(admin: SupabaseClient<Database>, input: G
         }
         drawCenteredText(
           page,
-          bold,
+          badgeFonts.get(element.fontFamily ?? "Inter") ?? bold,
           dynamicValues[element.id] ?? "",
           element.x,
           pdfY + Math.max(0, (element.height - size) / 2),

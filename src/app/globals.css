@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@font-face { font-family: "Badge Inter"; src: url("/fonts/inter-700.woff") format("woff"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Badge Manrope"; src: url("/fonts/manrope-700.woff") format("woff"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Badge Montserrat"; src: url("/fonts/montserrat-700.woff") format("woff"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Badge Poppins"; src: url("/fonts/poppins-700.woff") format("woff"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Badge Roboto"; src: url("/fonts/roboto-700.woff") format("woff"); font-weight: 700; font-style: normal; font-display: swap; }
+
 :root {
   --background: #f7f9fb;
   --foreground: #191c1e;
