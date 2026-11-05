@@ -34,7 +34,7 @@ function selectDefaultEvent(events: EventWithDays[], requestedId?: string) {
   const activeEvents = events
     .filter((event) => event.status === "ativo")
     .map((event) => ({ ...event, dates: (event.event_days ?? []).map((day) => day.date).sort() }))
-    .filter((event) => event.dates.length > 0 && event.dates[event.dates.length - 1] >= today);
+    .filter((event) => event.dates.length > 0);
   const happening = activeEvents.find((event) => event.dates[0] <= today && event.dates[event.dates.length - 1] >= today);
   if (happening) return happening.id;
   return activeEvents.sort((left, right) => left.dates[0].localeCompare(right.dates[0]))[0]?.id ?? events[0]?.id ?? "";
@@ -64,8 +64,7 @@ export default async function SponsorDetailPage({ params, searchParams }: Sponso
   const eventDates = (selectedEvent?.event_days ?? []).map((day) => day.date).sort();
   const canPrint = Boolean(
     selectedEvent?.status === "ativo" &&
-    eventDates.length &&
-    eventDates[eventDates.length - 1] >= getSaoPauloDateKey()
+    eventDates.length
   );
   const printAction = selectedEventId
     ? `/api/patrocinadores/${sponsor.id}/eventos/${selectedEventId}/credenciais`

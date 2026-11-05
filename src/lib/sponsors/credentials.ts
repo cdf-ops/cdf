@@ -2,7 +2,6 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createCredentialSlug } from "@/lib/badges/tokens";
-import { getSaoPauloDateKey } from "@/lib/date-time";
 import type { Database } from "@/lib/supabase/database.types";
 
 export function sponsorMemberCode(memberNumber: number) {
@@ -36,9 +35,7 @@ export async function loadSponsorTeamCredentialPdfData(
   if (!sponsor || sponsor.status !== "active") throw new Error("Patrocinador inativo ou não encontrado.");
   if (!event || event.status !== "ativo") throw new Error("Evento inativo ou não encontrado.");
   const eventDates = (days ?? []).map((day) => day.date).sort();
-  if (!eventDates.length || eventDates[eventDates.length - 1] < getSaoPauloDateKey()) {
-    throw new Error("As credenciais só podem ser preparadas para eventos ativos atuais ou futuros.");
-  }
+  if (!eventDates.length) throw new Error("O evento não possui datas cadastradas.");
   if ((members ?? []).length !== memberIds.length || (members ?? []).some((member) => member.status !== "active")) {
     throw new Error("A seleção contém uma pessoa inativa ou de outro patrocinador.");
   }

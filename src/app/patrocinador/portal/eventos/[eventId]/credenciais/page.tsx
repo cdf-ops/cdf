@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatDateOnly, getSaoPauloDateKey } from "@/lib/date-time";
+import { formatDateOnly } from "@/lib/date-time";
 import { sponsorMemberCode } from "@/lib/sponsors/credentials";
 import { requireSponsorSession } from "@/lib/sponsors/session";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -20,7 +20,7 @@ export default async function SponsorCredentialsPage({ params }: { params: Promi
       .order("full_name"),
   ]);
   const dates = (days ?? []).map((day) => day.date);
-  if (!event || event.status !== "ativo" || !dates.length || dates[dates.length - 1] < getSaoPauloDateKey()) notFound();
+  if (!event || event.status !== "ativo" || !dates.length) notFound();
   const action = `/api/patrocinador/eventos/${eventId}/credenciais`;
 
   return (

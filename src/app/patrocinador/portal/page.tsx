@@ -28,7 +28,7 @@ export default async function SponsorPortalPage() {
   ]);
   const events = ((eventsData ?? []) as EventWithDays[])
     .map((event) => ({ ...event, dates: (event.event_days ?? []).map((day) => day.date).sort() }))
-    .filter((event) => event.dates.length > 0 && event.dates[event.dates.length - 1] >= today)
+    .filter((event) => event.dates.length > 0)
     .sort((left, right) => left.dates[0].localeCompare(right.dates[0]));
 
   return (
@@ -43,20 +43,21 @@ export default async function SponsorPortalPage() {
       <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 sm:py-8">
         <section className="grid gap-3 sm:grid-cols-3">
           <div className="surface-card rounded-2xl p-5"><p className="text-sm text-muted">Equipe ativa</p><p className="mt-2 font-headline text-3xl font-extrabold">{(members ?? []).filter((member) => member.status === "active").length}</p></div>
-          <div className="surface-card rounded-2xl p-5"><p className="text-sm text-muted">Próximos eventos</p><p className="mt-2 font-headline text-3xl font-extrabold">{events.length}</p></div>
+          <div className="surface-card rounded-2xl p-5"><p className="text-sm text-muted">Eventos ativos</p><p className="mt-2 font-headline text-3xl font-extrabold">{events.length}</p></div>
           <div className="surface-card rounded-2xl p-5"><p className="text-sm text-muted">Registros no estande</p><p className="mt-2 font-headline text-3xl font-extrabold">{records?.length ?? 0}</p></div>
         </section>
 
         <section>
           <h1 className="font-headline text-2xl font-extrabold">Eventos disponíveis</h1>
-          <p className="mt-1 text-sm text-muted">Credenciais podem ser preparadas antes do evento; a leitura será liberada somente durante as datas.</p>
+          <p className="mt-1 text-sm text-muted">Credenciais podem ser impressas enquanto o evento estiver ativo; a leitura será liberada somente durante as datas.</p>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             {events.map((event) => {
               const happening = event.dates[0] <= today && event.dates[event.dates.length - 1] >= today;
+              const upcoming = event.dates[0] > today;
               const count = (records ?? []).filter((record) => record.event_id === event.id).length;
-              return <article key={event.id} className="surface-card rounded-2xl p-5"><div className="flex items-start justify-between gap-3"><div><h2 className="font-headline text-xl font-bold">{event.name}</h2><p className="mt-1 text-sm text-muted">{event.location}</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${happening ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"}`}>{happening ? "Acontecendo" : "Futuro"}</span></div><p className="mt-4 text-sm font-semibold">{event.dates.map((date) => formatDateOnly(date)).join(" • ")}</p><div className="mt-4 flex items-center justify-between rounded-xl bg-[var(--surface-container-lowest)] px-4 py-3"><span className="text-sm text-muted">Participantes registrados</span><strong>{count}</strong></div><div className="mt-4 grid gap-2 sm:grid-cols-2"><Link href={`/patrocinador/portal/eventos/${event.id}/credenciais`} className="min-h-11 rounded-xl border border-[var(--outline-variant)]/55 bg-white px-4 py-3 text-center text-sm font-semibold text-[var(--primary)]">Imprimir credenciais</Link>{happening ? <Link href={`/patrocinador/portal/eventos/${event.id}`} className="gradient-primary min-h-11 rounded-xl px-4 py-3 text-center text-sm font-semibold text-white">Ler credencial</Link> : <button type="button" disabled className="gradient-primary min-h-11 rounded-xl px-4 text-sm font-semibold text-white opacity-40">Leitura no dia</button>}</div></article>;
+              return <article key={event.id} className="surface-card rounded-2xl p-5"><div className="flex items-start justify-between gap-3"><div><h2 className="font-headline text-xl font-bold">{event.name}</h2><p className="mt-1 text-sm text-muted">{event.location}</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${happening ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"}`}>{happening ? "Acontecendo" : upcoming ? "Futuro" : "Ativo"}</span></div><p className="mt-4 text-sm font-semibold">{event.dates.map((date) => formatDateOnly(date)).join(" • ")}</p><div className="mt-4 flex items-center justify-between rounded-xl bg-[var(--surface-container-lowest)] px-4 py-3"><span className="text-sm text-muted">Participantes registrados</span><strong>{count}</strong></div><div className="mt-4 grid gap-2 sm:grid-cols-2"><Link href={`/patrocinador/portal/eventos/${event.id}/credenciais`} className="min-h-11 rounded-xl border border-[var(--outline-variant)]/55 bg-white px-4 py-3 text-center text-sm font-semibold text-[var(--primary)]">Imprimir credenciais</Link>{happening ? <Link href={`/patrocinador/portal/eventos/${event.id}`} className="gradient-primary min-h-11 rounded-xl px-4 py-3 text-center text-sm font-semibold text-white">Ler credencial</Link> : <button type="button" disabled className="gradient-primary min-h-11 rounded-xl px-4 text-sm font-semibold text-white opacity-40">Leitura no dia</button>}</div></article>;
             })}
-            {!events.length ? <div className="surface-card rounded-2xl p-8 text-center text-sm text-muted lg:col-span-2">Nenhum evento ativo futuro ou acontecendo.</div> : null}
+            {!events.length ? <div className="surface-card rounded-2xl p-8 text-center text-sm text-muted lg:col-span-2">Nenhum evento ativo disponível.</div> : null}
           </div>
         </section>
 
