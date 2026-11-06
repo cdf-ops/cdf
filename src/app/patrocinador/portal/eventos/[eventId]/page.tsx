@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SponsorCaptureScanner } from "@/app/patrocinador/portal/eventos/[eventId]/capture-scanner";
-import { formatSaoPauloDateTime, getSaoPauloDateKey } from "@/lib/date-time";
+import { getSaoPauloDateKey } from "@/lib/date-time";
 import { requireSponsorSession } from "@/lib/sponsors/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -14,25 +14,11 @@ export default async function SponsorEventCapturePage({
   const { eventId } = await params;
   const admin = createAdminClient();
   const today = getSaoPauloDateKey();
-  const [{ data: event }, { data: eventDay }, { data: records, count: recordCount }] = await Promise.all([
+  const [{ data: event }, { data: eventDay }] = await Promise.all([
     admin.from("events").select("id, name, location, status").eq("id", eventId).maybeSingle(),
     admin.from("event_days").select("id").eq("event_id", eventId).eq("date", today).maybeSingle(),
-    admin
-      .from("sponsor_participant_records")
-      .select("id, captured_at, participant_id", { count: "exact" })
-      .eq("sponsor_id", session.sponsorId)
-      .eq("event_id", eventId)
-      .is("invalidated_at", null)
-      .order("captured_at", { ascending: false })
-      .limit(50),
   ]);
   if (!event || event.status !== "ativo" || !eventDay) notFound();
-
-  const participantIds = [...new Set((records ?? []).map((record) => record.participant_id))];
-  const { data: participants } = participantIds.length
-    ? await admin.from("participants").select("id, full_name").in("id", participantIds)
-    : { data: [] };
-  const names = new Map((participants ?? []).map((participant) => [participant.id, participant.full_name]));
 
   return (
     <main className="min-h-screen bg-[var(--background)]">
@@ -44,12 +30,9 @@ export default async function SponsorEventCapturePage({
       </header>
       <div className="mx-auto w-full max-w-[1200px] space-y-6 px-4 py-5 sm:px-6 sm:py-8">
         <SponsorCaptureScanner eventId={eventId} />
-        <section className="surface-card hidden rounded-2xl p-5 md:block">
-          <div className="flex items-center justify-between"><div><h2 className="font-headline text-xl font-extrabold">Participantes registrados</h2><p className="mt-1 text-sm text-muted">As 50 leituras mais recentes deste evento.</p></div><strong className="text-2xl">{recordCount ?? 0}</strong></div>
-          <div className="mt-4 divide-y divide-[var(--outline-variant)]/25">
-            {(records ?? []).map((record) => <div key={record.id} className="flex items-center justify-between gap-4 py-3"><span className="font-semibold">{names.get(record.participant_id) ?? "Participante"}</span><time className="text-sm text-muted">{formatSaoPauloDateTime(record.captured_at)}</time></div>)}
-            {!records?.length ? <p className="py-8 text-center text-sm text-muted">Nenhum participante registrado até agora.</p> : null}
-          </div>
+        <section className="surface-card hidden items-center justify-between gap-4 rounded-2xl p-5 md:flex">
+          <div><h2 className="font-headline text-xl font-extrabold">Participantes capturados</h2><p className="mt-1 text-sm text-muted">Consulte e pesquise os registros deste evento em uma tela própria.</p></div>
+          <Link href={`/patrocinador/portal/eventos/${eventId}/participantes`} className="min-h-11 shrink-0 rounded-xl bg-[var(--primary)] px-5 py-3 text-sm font-bold text-white">Ver participantes</Link>
         </section>
       </div>
     </main>

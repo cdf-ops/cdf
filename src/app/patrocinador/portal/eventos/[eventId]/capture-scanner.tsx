@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type SharedParticipant = {
@@ -65,7 +64,6 @@ function feedback(success: boolean) {
 }
 
 export function SponsorCaptureScanner({ eventId }: { eventId: string }) {
-  const router = useRouter();
   const [manualValue, setManualValue] = useState("");
   const [result, setResult] = useState<ScannerResult | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
@@ -74,7 +72,13 @@ export function SponsorCaptureScanner({ eventId }: { eventId: string }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [cameraState, setCameraState] = useState<"idle" | "starting" | "active">("idle");
-  const scannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null);
+  const [isAwaitingNext, setIsAwaitingNext] = useState(false);
+  const scannerRef = useRef<{
+    stop: () => Promise<void>;
+    clear: () => void;
+    pause: (shouldPauseVideo?: boolean) => void;
+    resume: () => void;
+  } | null>(null);
   const processingRef = useRef(false);
   const lastValueRef = useRef<{ value: string; at: number } | null>(null);
 
@@ -125,9 +129,18 @@ export function SponsorCaptureScanner({ eventId }: { eventId: string }) {
       setSessionCount((count) => count + synced);
       setResult({ kind: "success", message: `${synced} registro(s) pendente(s) sincronizado(s).` });
       feedback(true);
-      router.refresh();
     }
-  }, [eventId, isSyncing, refreshPendingCount, router, sendCapture]);
+  }, [eventId, isSyncing, refreshPendingCount, sendCapture]);
+
+  const pauseCameraForFeedback = useCallback(() => {
+    if (!scannerRef.current) return;
+    try {
+      scannerRef.current.pause(true);
+      setIsAwaitingNext(true);
+    } catch {
+      // O retorno visual continua disponível mesmo se a câmera já tiver sido encerrada.
+    }
+  }, []);
 
   const processQrValue = useCallback(
     async (value: string) => {
@@ -154,7 +167,7 @@ export function SponsorCaptureScanner({ eventId }: { eventId: string }) {
         });
         feedback(data.status === "registered");
         if (data.status === "registered") setSessionCount((count) => count + 1);
-        router.refresh();
+        pauseCameraForFeedback();
       } catch (error) {
         const isOffline = !navigator.onLine || error instanceof TypeError;
         if (isOffline) {
@@ -169,9 +182,11 @@ export function SponsorCaptureScanner({ eventId }: { eventId: string }) {
             message: "Sem conexão. A leitura ficou pendente e será enviada quando a internet voltar.",
           });
           feedback(false);
+          pauseCameraForFeedback();
         } else {
           setResult({ kind: "error", message: error instanceof Error ? error.message : "Falha na leitura." });
           feedback(false);
+          pauseCameraForFeedback();
         }
       } finally {
         setManualValue("");
@@ -181,7 +196,7 @@ export function SponsorCaptureScanner({ eventId }: { eventId: string }) {
         }, 650);
       }
     },
-    [eventId, refreshPendingCount, router, sendCapture]
+    [eventId, pauseCameraForFeedback, refreshPendingCount, sendCapture]
   );
 
   useEffect(() => {
@@ -222,6 +237,7 @@ export function SponsorCaptureScanner({ eventId }: { eventId: string }) {
     if (cameraState !== "idle") return;
     setCameraState("starting");
     setResult(null);
+    setIsAwaitingNext(false);
     try {
       const { Html5Qrcode } = await import("html5-qrcode");
       const scanner = new Html5Qrcode("sponsor-capture-camera-reader");
@@ -250,6 +266,18 @@ export function SponsorCaptureScanner({ eventId }: { eventId: string }) {
     scannerRef.current?.clear();
     scannerRef.current = null;
     setCameraState("idle");
+    setIsAwaitingNext(false);
+  }
+
+  function scanNextParticipant() {
+    setResult(null);
+    setIsAwaitingNext(false);
+    lastValueRef.current = null;
+    try {
+      scannerRef.current?.resume();
+    } catch {
+      void stopCamera();
+    }
   }
 
   return (
@@ -268,7 +296,7 @@ export function SponsorCaptureScanner({ eventId }: { eventId: string }) {
 
       <section className="rounded-3xl bg-slate-950 p-4 text-white shadow-xl sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="font-headline text-2xl font-extrabold">Escanear credencial</h2><p className="mt-1 text-sm text-slate-300">A câmera permanece aberta para leituras consecutivas.</p></div>
+          <div><h2 className="font-headline text-2xl font-extrabold">Escanear credencial</h2><p className="mt-1 text-sm text-slate-300">Após cada leitura, confirme o resultado para escanear a próxima pessoa.</p></div>
           {cameraState === "active" ? (
             <button type="button" onClick={() => void stopCamera()} className="min-h-14 rounded-2xl bg-white px-6 text-base font-bold text-slate-950">Fechar câmera</button>
           ) : (
@@ -278,7 +306,16 @@ export function SponsorCaptureScanner({ eventId }: { eventId: string }) {
         <div id="sponsor-capture-camera-reader" className={`mt-5 overflow-hidden rounded-2xl bg-black ${cameraState === "idle" ? "hidden" : "min-h-72"}`} />
       </section>
 
-      <section className="surface-card rounded-2xl p-4 sm:p-5">
+      {result ? (
+        <div role="status" aria-live="polite" className={`fixed inset-x-4 bottom-4 z-50 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl p-5 shadow-2xl md:static md:max-h-none md:overflow-visible md:shadow-none ${result.kind === "success" ? "bg-emerald-100 text-emerald-950" : result.kind === "warning" ? "bg-amber-100 text-amber-950" : "bg-red-100 text-red-950"}`}>
+          <p className="text-xs font-extrabold uppercase tracking-[0.16em]">{result.kind === "success" ? "Participante registrado" : result.kind === "warning" ? "Atenção" : "Não foi possível registrar"}</p>
+          {result.participant ? <><p className="mt-2 font-headline text-2xl font-extrabold">{result.participant.full_name}</p><dl className="mt-3 grid gap-1 text-sm sm:grid-cols-2">{Object.entries(result.participant).filter(([key]) => key !== "full_name").map(([key, value]) => <div key={key}><dt className="inline font-bold">{{ email: "E-mail", phone: "Telefone", company: "Empresa", profession: "Profissão", job_title: "Cargo", city: "Cidade", state: "Estado" }[key] ?? key}: </dt><dd className="inline">{value}</dd></div>)}</dl></> : null}
+          <p className="mt-2 font-semibold">{result.message}</p>
+          {isAwaitingNext ? <button type="button" onClick={scanNextParticipant} className="mt-5 min-h-14 w-full rounded-xl bg-slate-950 px-5 text-base font-extrabold text-white">Escanear próximo participante</button> : null}
+        </div>
+      ) : null}
+
+      <section className="surface-card hidden rounded-2xl p-4 md:block sm:p-5">
         <h3 className="font-headline text-lg font-bold">Leitor USB ou código</h3>
         <form className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]" onSubmit={(event) => { event.preventDefault(); void processQrValue(manualValue); }}>
           <input autoComplete="off" autoFocus value={manualValue} onChange={(event) => setManualValue(event.target.value)} disabled={isProcessing} className="min-h-14 min-w-0 rounded-xl border bg-white px-4 font-mono text-base" placeholder="Aguardando QR Code..." />
@@ -286,12 +323,6 @@ export function SponsorCaptureScanner({ eventId }: { eventId: string }) {
         </form>
       </section>
 
-      {result ? (
-        <div role="status" aria-live="polite" className={`rounded-2xl p-5 ${result.kind === "success" ? "bg-emerald-100 text-emerald-950" : result.kind === "warning" ? "bg-amber-100 text-amber-950" : "bg-red-100 text-red-950"}`}>
-          {result.participant ? <><p className="font-headline text-2xl font-extrabold">{result.participant.full_name}</p><dl className="mt-3 grid gap-1 text-sm sm:grid-cols-2">{Object.entries(result.participant).filter(([key]) => key !== "full_name").map(([key, value]) => <div key={key}><dt className="inline font-bold">{{ email: "E-mail", phone: "Telefone", company: "Empresa", profession: "Profissão", job_title: "Cargo", city: "Cidade", state: "Estado" }[key] ?? key}: </dt><dd className="inline">{value}</dd></div>)}</dl></> : null}
-          <p className="mt-2 font-semibold">{result.message}</p>
-        </div>
-      ) : null}
     </div>
   );
 }
