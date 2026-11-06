@@ -4,6 +4,7 @@ import { extractCredentialSlug } from "@/lib/badges/tokens";
 import { ensureEventDayRegistration } from "@/lib/registrations/ensure-event-day-registration";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchConfiguredWebhook } from "@/lib/webhooks/dispatch";
+import { sponsorMemberCode } from "@/lib/sponsors/credentials";
 
 const requestSchema = z.object({
   eventDayId: z.string().uuid(),
@@ -30,6 +31,82 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
   ]);
   if (!eventDay) return Response.json({ error: "O dia selecionado não pertence a este evento." }, { status: 400 });
   if (!badge) {
+    const { data: sponsorTeamCredential } = await admin
+      .from("sponsor_team_credentials")
+      .select("id, sponsor_id, team_member_id, event_id")
+      .eq("qr_slug", qrSlug)
+      .maybeSingle();
+    if (sponsorTeamCredential) {
+      if (sponsorTeamCredential.event_id !== eventId) {
+        return Response.json({ error: "Esta credencial pertence a outro evento." }, { status: 404 });
+      }
+      const [{ data: sponsor }, { data: member }] = await Promise.all([
+        admin.from("sponsors").select("name, status").eq("id", sponsorTeamCredential.sponsor_id).maybeSingle(),
+        admin
+          .from("sponsor_team_members")
+          .select("member_number, full_name, status")
+          .eq("id", sponsorTeamCredential.team_member_id)
+          .eq("sponsor_id", sponsorTeamCredential.sponsor_id)
+          .maybeSingle(),
+      ]);
+      if (!sponsor || sponsor.status !== "active" || !member || member.status !== "active") {
+        return Response.json({ error: "Patrocinador ou integrante inativo." }, { status: 404 });
+      }
+
+      const sponsorPerson = {
+        full_name: member.full_name,
+        participant_number: sponsorMemberCode(member.member_number),
+      };
+      const { data: existingSponsorCheckin } = await admin
+        .from("sponsor_entry_checkins")
+        .select("checked_in_at")
+        .eq("sponsor_team_credential_id", sponsorTeamCredential.id)
+        .eq("event_day_id", eventDay.id)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (existingSponsorCheckin) {
+        return Response.json({
+          status: "already_checked_in",
+          participant: sponsorPerson,
+          printPath: `/api/events/${eventId}/reception-credentials/sponsor-team/${sponsorTeamCredential.id}`,
+          checkedInAt: existingSponsorCheckin.checked_in_at,
+          message: `${member.full_name} já realizou check-in neste dia como patrocinador (${sponsor.name}).`,
+        });
+      }
+
+      const checkedInAt = new Date().toISOString();
+      const { error } = await admin.from("sponsor_entry_checkins").insert({
+        sponsor_team_credential_id: sponsorTeamCredential.id,
+        event_day_id: eventDay.id,
+        operator_user_id: session.userId,
+        checked_in_at: checkedInAt,
+      });
+      if (error && error.code !== "23505") {
+        return Response.json({ error: "Não foi possível registrar o check-in do patrocinador." }, { status: 500 });
+      }
+
+      await admin.from("audit_logs").insert({
+        actor_user_id: session.userId,
+        action: "SPONSOR_TEAM_ENTRY_CHECKIN_CREATED_BY_BADGE",
+        context: {
+          event_id: eventId,
+          event_day_id: eventDay.id,
+          sponsor_id: sponsorTeamCredential.sponsor_id,
+          sponsor_team_credential_id: sponsorTeamCredential.id,
+          team_member_id: sponsorTeamCredential.team_member_id,
+        },
+      });
+      return Response.json({
+        status: error?.code === "23505" ? "already_checked_in" : "checked_in",
+        participant: sponsorPerson,
+        printPath: `/api/events/${eventId}/reception-credentials/sponsor-team/${sponsorTeamCredential.id}`,
+        checkedInAt,
+        message: error?.code === "23505"
+          ? `${member.full_name} já realizou check-in neste dia como patrocinador (${sponsor.name}).`
+          : `Check-in de ${member.full_name} realizado com sucesso como patrocinador (${sponsor.name}).`,
+      });
+    }
+
     const { data: sponsorCredential } = await admin
       .from("exhibitor_credentials")
       .select("id, event_exhibitor_id, team_member_id, credential_number")

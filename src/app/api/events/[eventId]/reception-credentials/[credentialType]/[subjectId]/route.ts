@@ -3,13 +3,14 @@ import { getCurrentSession } from "@/lib/auth/session";
 import { loadEventBadgePdfData } from "@/lib/badges/data";
 import { generateBadgePdf } from "@/lib/badges/pdf";
 import { loadSponsorCredentialPdfData, recordSponsorCredentialPrints } from "@/lib/sponsor-credentials/data";
+import { loadSponsorTeamCredentialPdfData } from "@/lib/sponsors/credentials";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
 const paramsSchema = z.object({
   eventId: z.string().uuid(),
-  credentialType: z.enum(["participant", "sponsor"]),
+  credentialType: z.enum(["participant", "sponsor", "sponsor-team"]),
   subjectId: z.string().uuid(),
 });
 
@@ -58,6 +59,34 @@ export async function GET(
       });
 
       return pdfResponse(bytes, `credencial-${participant.participantNumber}.pdf`);
+    }
+
+    if (credentialType === "sponsor-team") {
+      const { data: teamCredential } = await admin
+        .from("sponsor_team_credentials")
+        .select("id, sponsor_id, team_member_id")
+        .eq("id", subjectId)
+        .eq("event_id", eventId)
+        .maybeSingle();
+      if (!teamCredential) return new Response("Credencial de patrocinador não encontrada.", { status: 404 });
+
+      const data = await loadSponsorTeamCredentialPdfData(admin, {
+        sponsorId: teamCredential.sponsor_id,
+        eventId,
+        memberIds: [teamCredential.team_member_id],
+      });
+      const bytes = await generateBadgePdf(admin, data);
+      await admin.from("audit_logs").insert({
+        actor_user_id: session.userId,
+        action: "SPONSOR_TEAM_CREDENTIAL_PRINTED_AT_RECEPTION",
+        context: {
+          event_id: eventId,
+          sponsor_id: teamCredential.sponsor_id,
+          sponsor_team_credential_id: teamCredential.id,
+          team_member_id: teamCredential.team_member_id,
+        },
+      });
+      return pdfResponse(bytes, `credencial-patrocinador-${teamCredential.team_member_id}.pdf`);
     }
 
     const { data: sponsorCredential } = await admin

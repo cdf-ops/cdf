@@ -51,7 +51,7 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
     .is("deleted_at", null);
   const { data: sponsorCheckinsAll } = await admin
     .from("sponsor_entry_checkins")
-    .select("sponsor_credential_id, event_day_id")
+    .select("sponsor_credential_id, sponsor_team_credential_id, event_day_id")
     .in("event_day_id", eventDays.map((item) => item.id))
     .is("deleted_at", null);
 
@@ -71,7 +71,7 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
       standCount: standDay.length,
       standUnique: new Set(standDay.map((item) => item.participant_id)).size,
       sponsorCount: sponsorDay.length,
-      sponsorUnique: new Set(sponsorDay.map((item) => item.sponsor_credential_id)).size,
+      sponsorUnique: new Set(sponsorDay.map((item) => item.sponsor_team_credential_id ?? item.sponsor_credential_id)).size,
     };
   });
 
@@ -79,7 +79,9 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
   const totalEntryUnique = new Set(entryRows.map((item) => item.participant_id)).size;
   const totalStand = standRows.length;
   const totalSponsor = sponsorRows.length;
-  const totalSponsorUnique = new Set(sponsorRows.map((item) => item.sponsor_credential_id)).size;
+  const totalSponsorUnique = new Set(
+    sponsorRows.map((item) => item.sponsor_team_credential_id ?? item.sponsor_credential_id)
+  ).size;
   const selectedDayEntryUnique = new Set(
     entryRows.filter((item) => item.event_day_id === selectedDayId).map((item) => item.participant_id)
   ).size;

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 type ScannerResult = {
   kind: "success" | "warning" | "error";
   message: string;
-  participantNumber?: number;
+  participantNumber?: number | string;
   participantName?: string;
   printPath?: string;
 };
@@ -46,7 +46,7 @@ export function BadgeScanner({ eventId, eventDayId, initialQrValue, variant = "d
         status?: "checked_in" | "already_checked_in";
         message?: string;
         printPath?: string;
-        participant?: { full_name: string; participant_number: number };
+        participant?: { full_name: string; participant_number: number | string };
       };
       if (!response.ok) {
         setResult({ kind: "error", message: data.error ?? "Não foi possível ler a credencial." });

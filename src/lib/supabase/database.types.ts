@@ -1025,7 +1025,8 @@ export type Database = {
       sponsor_entry_checkins: {
         Row: {
           id: string;
-          sponsor_credential_id: string;
+          sponsor_credential_id: string | null;
+          sponsor_team_credential_id: string | null;
           event_day_id: string;
           operator_user_id: string;
           origin: string;
@@ -1035,7 +1036,8 @@ export type Database = {
         };
         Insert: {
           id?: string;
-          sponsor_credential_id: string;
+          sponsor_credential_id?: string | null;
+          sponsor_team_credential_id?: string | null;
           event_day_id: string;
           operator_user_id: string;
           origin?: string;
@@ -1045,7 +1047,8 @@ export type Database = {
         };
         Update: {
           id?: string;
-          sponsor_credential_id?: string;
+          sponsor_credential_id?: string | null;
+          sponsor_team_credential_id?: string | null;
           event_day_id?: string;
           operator_user_id?: string;
           origin?: string;
