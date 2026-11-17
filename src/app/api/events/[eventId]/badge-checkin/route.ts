@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ambassadorCode } from "@/lib/ambassadors/credentials";
 import { getCurrentSession } from "@/lib/auth/session";
 import { extractCredentialSlug } from "@/lib/badges/tokens";
 import { ensureEventDayRegistration } from "@/lib/registrations/ensure-event-day-registration";
@@ -25,12 +26,68 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
   if (!qrSlug) return Response.json({ error: "Este QR Code não é uma credencial do Clube do Frio." }, { status: 400 });
 
   const admin = createAdminClient();
-  const [{ data: eventDay }, { data: badge }] = await Promise.all([
+  const [{ data: eventDay }, { data: badge }, { data: ambassador }] = await Promise.all([
     admin.from("event_days").select("id, date").eq("id", parsed.data.eventDayId).eq("event_id", eventId).maybeSingle(),
     admin.from("badges").select("id, participant_id").eq("event_id", eventId).eq("qr_slug", qrSlug).maybeSingle(),
+    admin
+      .from("event_ambassadors")
+      .select("id, ambassador_number, full_name")
+      .eq("event_id", eventId)
+      .eq("qr_slug", qrSlug)
+      .eq("status", "active")
+      .maybeSingle(),
   ]);
   if (!eventDay) return Response.json({ error: "O dia selecionado não pertence a este evento." }, { status: 400 });
   if (!badge) {
+    if (ambassador) {
+      const ambassadorPerson = {
+        full_name: ambassador.full_name,
+        participant_number: ambassadorCode(ambassador.ambassador_number),
+      };
+      const { data: existingAmbassadorCheckin } = await admin
+        .from("ambassador_entry_checkins")
+        .select("checked_in_at")
+        .eq("ambassador_id", ambassador.id)
+        .eq("event_day_id", eventDay.id)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (existingAmbassadorCheckin) {
+        return Response.json({
+          status: "already_checked_in",
+          participant: ambassadorPerson,
+          printPath: `/api/events/${eventId}/reception-credentials/ambassador/${ambassador.id}`,
+          checkedInAt: existingAmbassadorCheckin.checked_in_at,
+          message: `${ambassador.full_name} já realizou check-in neste dia como embaixador.`,
+        });
+      }
+
+      const checkedInAt = new Date().toISOString();
+      const { error } = await admin.from("ambassador_entry_checkins").insert({
+        ambassador_id: ambassador.id,
+        event_day_id: eventDay.id,
+        operator_user_id: session.userId,
+        checked_in_at: checkedInAt,
+      });
+      if (error && error.code !== "23505") {
+        return Response.json({ error: "Não foi possível registrar o check-in do embaixador." }, { status: 500 });
+      }
+
+      await admin.from("audit_logs").insert({
+        actor_user_id: session.userId,
+        action: "AMBASSADOR_ENTRY_CHECKIN_CREATED_BY_BADGE",
+        context: { event_id: eventId, event_day_id: eventDay.id, ambassador_id: ambassador.id },
+      });
+      return Response.json({
+        status: error?.code === "23505" ? "already_checked_in" : "checked_in",
+        participant: ambassadorPerson,
+        printPath: `/api/events/${eventId}/reception-credentials/ambassador/${ambassador.id}`,
+        checkedInAt,
+        message: error?.code === "23505"
+          ? `${ambassador.full_name} já realizou check-in neste dia como embaixador.`
+          : `Check-in de ${ambassador.full_name} realizado com sucesso como embaixador.`,
+      });
+    }
+
     const { data: sponsorTeamCredential } = await admin
       .from("sponsor_team_credentials")
       .select("id, sponsor_id, team_member_id, event_id")

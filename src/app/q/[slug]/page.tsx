@@ -11,12 +11,18 @@ export default async function BadgeQrPage({ params }: { params: Promise<{ slug: 
   if (!slug) notFound();
 
   const admin = createAdminClient();
-  const [{ data: badge }, { data: sponsorTeamCredential }] = await Promise.all([
+  const [{ data: badge }, { data: sponsorTeamCredential }, { data: ambassador }] = await Promise.all([
     admin.from("badges").select("event_id").eq("qr_slug", slug).maybeSingle(),
     admin
       .from("sponsor_team_credentials")
       .select("sponsor_id")
       .eq("qr_slug", slug)
+      .maybeSingle(),
+    admin
+      .from("event_ambassadors")
+      .select("event_id")
+      .eq("qr_slug", slug)
+      .eq("status", "active")
       .maybeSingle(),
   ]);
   if (sponsorTeamCredential) {
@@ -32,7 +38,7 @@ export default async function BadgeQrPage({ params }: { params: Promise<{ slug: 
 
   const session = await getCurrentSession();
   if (!session) redirect("/login");
-  let eventId = badge?.event_id;
+  let eventId = badge?.event_id ?? ambassador?.event_id;
   if (!eventId) {
     const { data: sponsorCredential } = await admin
       .from("exhibitor_credentials")

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { loadAmbassadorCredentialPdfData } from "@/lib/ambassadors/credentials";
 import { getCurrentSession } from "@/lib/auth/session";
 import { loadEventBadgePdfData } from "@/lib/badges/data";
 import { generateBadgePdf } from "@/lib/badges/pdf";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 const paramsSchema = z.object({
   eventId: z.string().uuid(),
-  credentialType: z.enum(["participant", "sponsor", "sponsor-team"]),
+  credentialType: z.enum(["participant", "sponsor", "sponsor-team", "ambassador"]),
   subjectId: z.string().uuid(),
 });
 
@@ -59,6 +60,17 @@ export async function GET(
       });
 
       return pdfResponse(bytes, `credencial-${participant.participantNumber}.pdf`);
+    }
+
+    if (credentialType === "ambassador") {
+      const data = await loadAmbassadorCredentialPdfData(admin, { eventId, ambassadorIds: [subjectId] });
+      const bytes = await generateBadgePdf(admin, data);
+      await admin.from("audit_logs").insert({
+        actor_user_id: session.userId,
+        action: "AMBASSADOR_CREDENTIAL_PRINTED_AT_RECEPTION",
+        context: { event_id: eventId, ambassador_id: subjectId },
+      });
+      return pdfResponse(bytes, `credencial-embaixador-${subjectId}.pdf`);
     }
 
     if (credentialType === "sponsor-team") {

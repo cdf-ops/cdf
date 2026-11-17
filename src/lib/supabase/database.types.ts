@@ -3,6 +3,58 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      event_ambassadors: {
+        Row: {
+          id: string;
+          ambassador_number: number;
+          event_id: string;
+          full_name: string;
+          qr_slug: string;
+          status: "active" | "inactive";
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          ambassador_number?: number;
+          event_id: string;
+          full_name: string;
+          qr_slug: string;
+          status?: "active" | "inactive";
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["event_ambassadors"]["Insert"]>;
+        Relationships: [];
+      };
+      ambassador_entry_checkins: {
+        Row: {
+          id: string;
+          ambassador_id: string;
+          event_day_id: string;
+          operator_user_id: string;
+          origin: "badge_qr" | "manual";
+          checked_in_at: string;
+          deleted_at: string | null;
+          deleted_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          ambassador_id: string;
+          event_day_id: string;
+          operator_user_id: string;
+          origin?: "badge_qr" | "manual";
+          checked_in_at?: string;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["ambassador_entry_checkins"]["Insert"]>;
+        Relationships: [];
+      };
       sponsors: {
         Row: {
           id: string;
