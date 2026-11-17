@@ -76,7 +76,6 @@ export async function saveBadgeLayoutAction(formData: FormData) {
     context: { event_id: parsed.data.eventId, has_background: Boolean(backgroundPath) },
   });
   revalidatePath(`/events/${parsed.data.eventId}/credentials`);
-  revalidatePath(`/events/${parsed.data.eventId}/credencial-patrocinador`);
 }
 
 export async function generateBadgeAction(formData: FormData) {

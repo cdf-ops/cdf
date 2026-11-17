@@ -65,11 +65,6 @@ export default async function EventScopedLayout({ children, params }: EventScope
         },
         { href: `/events/${eventId}/settings`, label: "Configuração do evento", roles: ["super_adm", "organizador"] },
         {
-          href: `/events/${eventId}/credencial-patrocinador`,
-          label: "Credencial do patrocinador",
-          roles: ["super_adm", "organizador", "expositor"],
-        },
-        {
           href: `/events/${eventId}/credentials`,
           label: "Configuração da credencial",
           roles: ["super_adm", "organizador"],
