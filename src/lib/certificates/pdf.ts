@@ -1,13 +1,26 @@
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { PDFDocument, rgb, type PDFFont, type PDFImage } from "pdf-lib";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { EVENT_ASSETS_BUCKET } from "@/lib/certificates/assets";
 import {
   CERTIFICATE_HEIGHT,
+  CERTIFICATE_FONT_FAMILIES,
   CERTIFICATE_WIDTH,
   parseCertificateLayout,
+  type CertificateFontFamily,
   type CertificateLayoutElement,
 } from "@/lib/certificates/layout";
+
+const CERTIFICATE_FONT_FILES: Record<CertificateFontFamily, string> = {
+  Inter: "inter-700.woff",
+  Manrope: "manrope-700.woff",
+  Montserrat: "montserrat-700.woff",
+  Poppins: "poppins-700.woff",
+  Roboto: "roboto-700.woff",
+};
 
 type CertificatePdfInput = {
   eventName: string;
@@ -97,8 +110,21 @@ function drawText(
 
 export async function generateCertificatePdf(admin: SupabaseClient<Database>, input: CertificatePdfInput) {
   const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
   const page = pdfDoc.addPage([CERTIFICATE_WIDTH, CERTIFICATE_HEIGHT]);
-  const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const layout = parseCertificateLayout(input.layout);
+  const usedFontFamilies = new Set<CertificateFontFamily>(
+    layout.elements
+      .filter((element) => element.kind === "text" && element.visible)
+      .map((element) => element.fontFamily ?? "Inter")
+  );
+  const fonts = new Map<CertificateFontFamily, PDFFont>();
+  await Promise.all(
+    CERTIFICATE_FONT_FAMILIES.filter((family) => usedFontFamilies.has(family)).map(async (family) => {
+      const bytes = await readFile(join(process.cwd(), "public", "fonts", CERTIFICATE_FONT_FILES[family]));
+      fonts.set(family, await pdfDoc.embedFont(bytes, { subset: true }));
+    })
+  );
 
   const [background, eventLogo, sponsorImage] = await Promise.all([
     embedImage(pdfDoc, await downloadAsset(admin, input.backgroundPath)),
@@ -123,22 +149,22 @@ export async function generateCertificatePdf(admin: SupabaseClient<Database>, in
     });
   }
 
-  const layout = parseCertificateLayout(input.layout);
   const values = {
     eventName: input.eventName,
     eventDate: formatDate(input.eventDate),
     participantName: input.participantName,
   };
 
-  for (const element of layout.elements) {
+  for (const element of layout.elements.filter((item) => item.visible)) {
+    const font = fonts.get(element.fontFamily ?? "Inter") ?? fonts.get("Inter");
     if (element.id === "eventLogo" && eventLogo) {
       drawImage(page, eventLogo, element);
     } else if (element.id === "sponsorImage" && sponsorImage) {
       drawImage(page, sponsorImage, element);
     } else if (element.id === "text1" || element.id === "text2" || element.id === "text3") {
-      drawText(page, font, element, element.text ?? "");
+      if (font) drawText(page, font, element, element.text ?? "");
     } else if (element.id === "eventName" || element.id === "eventDate" || element.id === "participantName") {
-      drawText(page, font, element, values[element.id]);
+      if (font) drawText(page, font, element, values[element.id]);
     }
   }
 

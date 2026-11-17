@@ -3,6 +3,9 @@ import type { Json } from "@/lib/supabase/database.types";
 export const CERTIFICATE_WIDTH = 1920;
 export const CERTIFICATE_HEIGHT = 1080;
 
+export const CERTIFICATE_FONT_FAMILIES = ["Inter", "Manrope", "Montserrat", "Poppins", "Roboto"] as const;
+export type CertificateFontFamily = (typeof CERTIFICATE_FONT_FAMILIES)[number];
+
 export type CertificateElementId =
   | "text1"
   | "text2"
@@ -24,9 +27,11 @@ export type CertificateLayoutElement = {
   width: number;
   height: number;
   fontSize?: number;
+  fontFamily?: CertificateFontFamily;
   color?: string;
   align?: "left" | "center" | "right";
   text?: string;
+  visible: boolean;
 };
 
 export type CertificateLayout = {
@@ -43,6 +48,7 @@ export const DEFAULT_CERTIFICATE_LAYOUT: CertificateLayout = {
       y: 90,
       width: 300,
       height: 160,
+      visible: true,
     },
     {
       id: "eventName",
@@ -53,8 +59,10 @@ export const DEFAULT_CERTIFICATE_LAYOUT: CertificateLayout = {
       width: 1280,
       height: 90,
       fontSize: 54,
+      fontFamily: "Inter",
       color: "#191c1e",
       align: "center",
+      visible: true,
     },
     {
       id: "text1",
@@ -65,9 +73,11 @@ export const DEFAULT_CERTIFICATE_LAYOUT: CertificateLayout = {
       width: 800,
       height: 80,
       fontSize: 58,
+      fontFamily: "Inter",
       color: "#005ea4",
       align: "center",
       text: "CERTIFICADO",
+      visible: true,
     },
     {
       id: "text2",
@@ -78,9 +88,11 @@ export const DEFAULT_CERTIFICATE_LAYOUT: CertificateLayout = {
       width: 800,
       height: 58,
       fontSize: 34,
+      fontFamily: "Inter",
       color: "#191c1e",
       align: "center",
       text: "Certificamos que",
+      visible: true,
     },
     {
       id: "participantName",
@@ -91,8 +103,10 @@ export const DEFAULT_CERTIFICATE_LAYOUT: CertificateLayout = {
       width: 1400,
       height: 110,
       fontSize: 78,
+      fontFamily: "Inter",
       color: "#005ea4",
       align: "center",
+      visible: true,
     },
     {
       id: "text3",
@@ -103,9 +117,11 @@ export const DEFAULT_CERTIFICATE_LAYOUT: CertificateLayout = {
       width: 1000,
       height: 58,
       fontSize: 34,
+      fontFamily: "Inter",
       color: "#191c1e",
       align: "center",
       text: "participou de forma presencial no",
+      visible: true,
     },
     {
       id: "eventDate",
@@ -116,8 +132,10 @@ export const DEFAULT_CERTIFICATE_LAYOUT: CertificateLayout = {
       width: 800,
       height: 70,
       fontSize: 38,
+      fontFamily: "Inter",
       color: "#191c1e",
       align: "center",
+      visible: true,
     },
     {
       id: "sponsorImage",
@@ -127,6 +145,7 @@ export const DEFAULT_CERTIFICATE_LAYOUT: CertificateLayout = {
       y: 850,
       width: 600,
       height: 130,
+      visible: true,
     },
   ],
 };
@@ -161,6 +180,18 @@ function sanitizeText(value: unknown, fallback: string | undefined) {
   return normalized || fallback;
 }
 
+export function constrainCertificateElement(element: CertificateLayoutElement): CertificateLayoutElement {
+  const width = sanitizeNumber(element.width, 200, 40, CERTIFICATE_WIDTH);
+  const height = sanitizeNumber(element.height, 60, 30, CERTIFICATE_HEIGHT);
+  return {
+    ...element,
+    width,
+    height,
+    x: sanitizeNumber(element.x, 0, 0, CERTIFICATE_WIDTH - width),
+    y: sanitizeNumber(element.y, 0, 0, CERTIFICATE_HEIGHT - height),
+  };
+}
+
 export function parseCertificateLayout(value: Json | string | null | undefined): CertificateLayout {
   let source: Json | undefined | null = value;
   if (typeof value === "string") {
@@ -189,7 +220,7 @@ export function parseCertificateLayout(value: Json | string | null | undefined):
         return fallback;
       }
 
-      return {
+      return constrainCertificateElement({
         ...fallback,
         x: sanitizeNumber(submitted.x, fallback.x, 0, CERTIFICATE_WIDTH),
         y: sanitizeNumber(submitted.y, fallback.y, 0, CERTIFICATE_HEIGHT),
@@ -197,13 +228,18 @@ export function parseCertificateLayout(value: Json | string | null | undefined):
         height: sanitizeNumber(submitted.height, fallback.height, 30, CERTIFICATE_HEIGHT),
         fontSize:
           fallback.kind === "text" ? sanitizeNumber(submitted.fontSize, fallback.fontSize ?? 40, 12, 140) : undefined,
+        fontFamily:
+          fallback.kind === "text" && CERTIFICATE_FONT_FAMILIES.includes(submitted.fontFamily as CertificateFontFamily)
+            ? (submitted.fontFamily as CertificateFontFamily)
+            : fallback.fontFamily,
         color: fallback.kind === "text" ? sanitizeColor(submitted.color, fallback.color ?? "#191c1e") : undefined,
         align:
           submitted.align === "left" || submitted.align === "center" || submitted.align === "right"
             ? submitted.align
             : fallback.align,
         text: fallback.text ? sanitizeText(submitted.text, fallback.text) : undefined,
-      };
+        visible: submitted.visible !== false,
+      });
     }),
   };
 }

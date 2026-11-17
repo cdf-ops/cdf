@@ -400,6 +400,7 @@ export type Database = {
           password_change_required: boolean;
           temporary_password_issued_at: string | null;
           temporary_password_issued_by: string | null;
+          event_navigation_order: Json;
           created_at: string;
           updated_at: string;
         };
@@ -410,6 +411,7 @@ export type Database = {
           password_change_required?: boolean;
           temporary_password_issued_at?: string | null;
           temporary_password_issued_by?: string | null;
+          event_navigation_order?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -420,6 +422,7 @@ export type Database = {
           password_change_required?: boolean;
           temporary_password_issued_at?: string | null;
           temporary_password_issued_by?: string | null;
+          event_navigation_order?: Json;
           created_at?: string;
           updated_at?: string;
         };

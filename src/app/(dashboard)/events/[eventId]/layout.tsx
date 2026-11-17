@@ -2,6 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { restoreEventAction } from "@/app/(dashboard)/events/actions";
 import { EventMobileNav } from "@/app/(dashboard)/events/[eventId]/event-mobile-nav";
+import {
+  applyEventNavigationOrder,
+  parseEventNavigationOrder,
+  type EventNavigationSection,
+} from "@/app/(dashboard)/events/[eventId]/event-navigation";
 import { EventSidebarNav } from "@/app/(dashboard)/events/[eventId]/event-sidebar-nav";
 import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
@@ -18,7 +23,10 @@ export default async function EventScopedLayout({ children, params }: EventScope
   const { eventId } = await params;
 
   const supabase = await createClient();
-  const { data: event } = await supabase.from("events").select("id, name, status").eq("id", eventId).maybeSingle();
+  const [{ data: event }, { data: profile }] = await Promise.all([
+    supabase.from("events").select("id, name, status").eq("id", eventId).maybeSingle(),
+    supabase.from("user_profiles").select("event_navigation_order").eq("id", session.userId).maybeSingle(),
+  ]);
 
   if (!event) {
     notFound();
@@ -52,26 +60,29 @@ export default async function EventScopedLayout({ children, params }: EventScope
     );
   }
 
-  const navSections: { id: string; label: string; items: { href: string; label: string; roles: AppRole[] }[] }[] = [
+  const navSections: { id: EventNavigationSection["id"]; label: string; items: { id: string; href: string; label: string; roles: AppRole[] }[] }[] = [
     {
       id: "pre-evento",
       label: "Pré-evento",
       items: [
-        { href: `/events/${eventId}/brevo`, label: "Brevo", roles: ["super_adm", "organizador"] },
+        { id: "brevo", href: `/events/${eventId}/brevo`, label: "Brevo", roles: ["super_adm", "organizador"] },
         {
+          id: "certificate-settings",
           href: `/events/${eventId}/certificate-settings`,
           label: "Configuração de certificados",
           roles: ["super_adm", "organizador"],
         },
-        { href: `/events/${eventId}/settings`, label: "Configuração do evento", roles: ["super_adm", "organizador"] },
+        { id: "event-settings", href: `/events/${eventId}/settings`, label: "Configuração do evento", roles: ["super_adm", "organizador"] },
         {
+          id: "credential-settings",
           href: `/events/${eventId}/credentials`,
           label: "Configuração da credencial",
           roles: ["super_adm", "organizador"],
         },
-        { href: `/events/${eventId}/embaixadores`, label: "Embaixadores", roles: ["super_adm", "organizador"] },
-        { href: `/events/${eventId}/inscricoes`, label: "Inscrições", roles: ["super_adm", "organizador"] },
+        { id: "ambassadors", href: `/events/${eventId}/embaixadores`, label: "Embaixadores", roles: ["super_adm", "organizador"] },
+        { id: "registrations", href: `/events/${eventId}/inscricoes`, label: "Inscrições", roles: ["super_adm", "organizador"] },
         {
+          id: "participants",
           href: `/events/${eventId}/participants`,
           label: "Participantes",
           roles: ["super_adm", "organizador", "recepcao", "expositor"],
@@ -82,45 +93,47 @@ export default async function EventScopedLayout({ children, params }: EventScope
       id: "durante-evento",
       label: "Durante o evento",
       items: [
-        { href: `/events/${eventId}/checkin-expositor`, label: "Check-in nos estandes", roles: ["expositor"] },
+        { id: "stand-checkin", href: `/events/${eventId}/checkin-expositor`, label: "Check-in nos estandes", roles: ["expositor"] },
         {
+          id: "reception-checkin",
           href: `/events/${eventId}/checkin-recepcao`,
           label: "Check-in da recepção",
           roles: ["super_adm", "organizador", "recepcao"],
         },
         {
+          id: "daily-list",
           href: `/events/${eventId}/lista-do-dia`,
           label: "Lista do dia",
           roles: ["super_adm", "organizador", "recepcao"],
         },
-        { href: `/events/${eventId}/sorteio`, label: "Sorteio", roles: ["super_adm", "organizador", "sorteador"] },
+        { id: "raffle", href: `/events/${eventId}/sorteio`, label: "Sorteio", roles: ["super_adm", "organizador", "sorteador"] },
       ],
     },
     {
       id: "pos-evento",
       label: "Pós-evento",
       items: [
-        { href: `/events/${eventId}/auditoria`, label: "Auditoria", roles: ["super_adm"] },
-        { href: `/events/${eventId}/certificados`, label: "Certificados", roles: ["super_adm", "organizador"] },
-        { href: `/events/${eventId}/relatorios`, label: "Relatórios", roles: ["super_adm", "organizador"] },
+        { id: "audit", href: `/events/${eventId}/auditoria`, label: "Auditoria", roles: ["super_adm"] },
+        { id: "certificates", href: `/events/${eventId}/certificados`, label: "Certificados", roles: ["super_adm", "organizador"] },
+        { id: "reports", href: `/events/${eventId}/relatorios`, label: "Relatórios", roles: ["super_adm", "organizador"] },
       ],
     },
   ];
-  const visibleNavSections = navSections
+  const visibleNavSections = applyEventNavigationOrder(navSections
     .map((section) => ({
       id: section.id,
       label: section.label,
       items: section.items
         .filter((item) => item.roles.includes(session.role))
-        .map(({ href, label }) => ({ href, label })),
+        .map(({ id, href, label }) => ({ id, href, label })),
     }))
-    .filter((section) => section.items.length > 0);
+    .filter((section) => section.items.length > 0), parseEventNavigationOrder(profile?.event_navigation_order));
 
   return (
     <section data-event-shell className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
       <aside data-event-sidebar className="shell-card hidden h-fit rounded-2xl p-3 lg:sticky lg:top-24 lg:block">
         <p className="px-2 pb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Modulos</p>
-        <EventSidebarNav sections={visibleNavSections} />
+        <EventSidebarNav eventId={eventId} sections={visibleNavSections} />
       </aside>
 
       <div data-event-content className="min-w-0">
