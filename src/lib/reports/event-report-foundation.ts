@@ -29,6 +29,7 @@ export type ReportCheckin = {
   participantId: string;
   eventDayId: string;
   checkedInAt: string;
+  origin: string;
 };
 
 export type EventDayReportFoundation = {
@@ -106,7 +107,7 @@ export async function getEventReportFoundation(eventId: string): Promise<EventRe
         .eq("status", "active"),
       admin
         .from("entry_checkins")
-        .select("id, participant_id, event_day_id, checked_in_at")
+        .select("id, participant_id, event_day_id, checked_in_at, origin")
         .in("event_day_id", dayIds)
         .is("deleted_at", null),
     ]);
@@ -127,6 +128,7 @@ export async function getEventReportFoundation(eventId: string): Promise<EventRe
     participantId: checkin.participant_id,
     eventDayId: checkin.event_day_id,
     checkedInAt: checkin.checked_in_at,
+    origin: checkin.origin,
   }));
   const participantIds = unique([
     ...registrations.map((registration) => registration.participantId),

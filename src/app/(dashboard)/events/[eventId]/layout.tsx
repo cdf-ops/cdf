@@ -103,7 +103,7 @@ export default async function EventScopedLayout({ children, params }: EventScope
         {
           id: "daily-list",
           href: `/events/${eventId}/lista-do-dia`,
-          label: "Lista do dia",
+          label: "Monitoramento",
           roles: ["super_adm", "organizador", "recepcao"],
         },
         { id: "raffle", href: `/events/${eventId}/sorteio`, label: "Sorteio", roles: ["super_adm", "organizador", "sorteador"] },

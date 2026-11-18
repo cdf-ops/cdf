@@ -1,412 +1,369 @@
 import Form from "next/form";
-import { requireSession } from "@/lib/auth/session";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
-import { formatDateOnly, formatSaoPauloTime, getClosestEventDayId, getSaoPauloHour } from "@/lib/date-time";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { requireSession } from "@/lib/auth/session";
+import {
+  formatDateOnly,
+  formatSaoPauloDateTime,
+  formatSaoPauloTime,
+  getClosestEventDayId,
+} from "@/lib/date-time";
+import { getEventReportFoundation } from "@/lib/reports/event-report-foundation";
 
-type DayListPageProps = {
+type MonitoringPageProps = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ day?: string; q?: string }>;
+  searchParams: Promise<{ day?: string; q?: string; scope?: string }>;
 };
 
-type ConsolidatedRow = {
-  id: string;
-  participantId: string;
-  checkedAt: string;
-  type: "Entrada" | "Stand";
-  context: string;
-  kind: "Normal" | "Incluído na Hora" | "Stand";
-  status: "Ativo";
+type MonitoringScope = "day" | "event";
+
+const CHECKIN_ORIGIN_LABELS: Record<string, string> = {
+  recepcao: "Recepção",
+  manual: "Busca manual",
+  manual_include_day: "Incluído na hora",
+  qr_code: "QR Code",
+  credential_print: "Impressão de credencial",
 };
 
-function getInitials(name?: string) {
-  if (!name) {
-    return "--";
-  }
-  const parts = name
+function unique(values: string[]) {
+  return [...new Set(values)];
+}
+
+function getInitials(name: string) {
+  return name
     .trim()
     .split(/\s+/)
     .filter(Boolean)
-    .slice(0, 2);
-  if (!parts.length) {
-    return "--";
-  }
-  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
 }
 
-export default async function DayListPage({ params, searchParams }: DayListPageProps) {
+function buildMonitoringHref(eventId: string, values: { scope: MonitoringScope; dayId: string; q?: string }) {
+  const params = new URLSearchParams({ scope: values.scope, day: values.dayId });
+  if (values.q?.trim()) params.set("q", values.q.trim());
+  return `/events/${eventId}/lista-do-dia?${params.toString()}`;
+}
+
+export default async function MonitoringPage({ params, searchParams }: MonitoringPageProps) {
   await requireSession(["super_adm", "organizador"]);
   const { eventId } = await params;
-  const { day, q = "" } = await searchParams;
-  const admin = createAdminClient();
+  const { day, q = "", scope: rawScope } = await searchParams;
+  const foundation = await getEventReportFoundation(eventId);
+  if (!foundation) notFound();
 
-  const { data: eventDaysData } = await admin
-    .from("event_days")
-    .select("id, date")
-    .eq("event_id", eventId)
-    .order("date", { ascending: true });
-  const eventDays = eventDaysData ?? [];
-
+  const eventDays = foundation.days;
   if (!eventDays.length) {
     return (
       <section className="surface-card rounded-xl p-6">
-        <h2 className="font-headline text-2xl font-extrabold text-[var(--foreground)]">Lista do Dia</h2>
+        <h1 className="font-headline text-2xl font-extrabold text-[var(--foreground)]">Monitoramento</h1>
         <p className="mt-2 text-sm text-muted">Este evento ainda não possui datas configuradas.</p>
       </section>
     );
   }
 
-  const selectedDayId = eventDays.some((item) => item.id === day) ? String(day) : getClosestEventDayId(eventDays);
-  const queryText = q.trim().toLowerCase();
-
-  const entryCheckins =
-    (
-      await admin
-        .from("entry_checkins")
-        .select("id, participant_id, checked_in_at, origin")
-        .eq("event_day_id", selectedDayId)
-        .is("deleted_at", null)
-    ).data ?? [];
-
-  const standCheckins =
-    (
-      await admin
-        .from("stand_checkins")
-        .select("id, participant_id, checked_in_at, event_exhibitor_id")
-        .eq("event_day_id", selectedDayId)
-        .is("deleted_at", null)
-    ).data ?? [];
-
-  const registrations =
-    (
-      await admin
-        .from("event_registrations")
-        .select("participant_id")
-        .eq("event_day_id", selectedDayId)
-        .eq("status", "active")
-    ).data ?? [];
-
-  const participantIds = [
-    ...new Set([...entryCheckins.map((item) => item.participant_id), ...standCheckins.map((item) => item.participant_id)]),
-  ];
-  const participants =
-    participantIds.length > 0
-      ? (
-          await admin
-            .from("participants")
-            .select("id, participant_number, full_name, document_type, document_number")
-            .in("id", participantIds)
-        ).data ?? []
-      : [];
-  const participantMap = new Map(participants.map((item) => [item.id, item]));
-
-  const eventExhibitorIds = [...new Set(standCheckins.map((item) => item.event_exhibitor_id))];
-  const eventExhibitors =
-    eventExhibitorIds.length > 0
-      ? (
-          await admin
-            .from("event_exhibitors")
-            .select("id, exhibitor_company_id, stand_name")
-            .in("id", eventExhibitorIds)
-        ).data ?? []
-      : [];
-
-  const companyIds = [...new Set(eventExhibitors.map((item) => item.exhibitor_company_id))];
-  const companies =
-    companyIds.length > 0
-      ? (
-          await admin
-            .from("exhibitor_companies")
-            .select("id, name")
-            .in("id", companyIds)
-        ).data ?? []
-      : [];
-
-  const companyMap = new Map(companies.map((item) => [item.id, item.name]));
-  const eventExhibitorMap = new Map(
-    eventExhibitors.map((item) => [
-      item.id,
-      {
-        standName: item.stand_name,
-        companyName: companyMap.get(item.exhibitor_company_id) ?? "Expositor",
-      },
+  const scope: MonitoringScope = rawScope === "event" ? "event" : "day";
+  const selectedDayId = eventDays.some((item) => item.id === day)
+    ? String(day)
+    : getClosestEventDayId(eventDays);
+  const selectedDay = eventDays.find((item) => item.id === selectedDayId) ?? eventDays[0];
+  const relevantDays = scope === "event" ? eventDays : [selectedDay];
+  const relevantDayIds = new Set(relevantDays.map((item) => item.id));
+  const relevantRegistrations = foundation.registrations.filter((item) => relevantDayIds.has(item.eventDayId));
+  const relevantCheckins = foundation.officialCheckins.filter((item) => relevantDayIds.has(item.eventDayId));
+  const registeredParticipantIds = unique(relevantRegistrations.map((item) => item.participantId));
+  const expectedParticipantIds = unique(relevantDays.flatMap((item) => item.uniqueExpectedParticipantIds));
+  const presentParticipantIds = unique(relevantCheckins.map((item) => item.participantId));
+  const presentSet = new Set(presentParticipantIds);
+  const absentExpectedParticipantIds = expectedParticipantIds.filter((participantId) => !presentSet.has(participantId));
+  const presentExpectedCount = expectedParticipantIds.filter((participantId) => presentSet.has(participantId)).length;
+  const presenceRate = expectedParticipantIds.length
+    ? Math.round((presentExpectedCount / expectedParticipantIds.length) * 10_000) / 100
+    : 0;
+  const expectedSlots = relevantDays.reduce((total, item) => total + item.expectedRegistrations.length, 0);
+  const onsiteSlots = relevantDays.reduce((total, item) => total + item.onsiteRegistrations.length, 0);
+  const dayById = new Map(eventDays.map((item) => [item.id, item]));
+  const registrationByParticipantDay = new Map(
+    foundation.registrations.map((registration) => [
+      `${registration.participantId}:${registration.eventDayId}`,
+      registration,
     ])
   );
-
-  const rows: ConsolidatedRow[] = [
-    ...entryCheckins.map((item) => ({
-      id: `entry-${item.id}`,
-      participantId: item.participant_id,
-      checkedAt: item.checked_in_at,
-      type: "Entrada" as const,
-      context: item.origin,
-      kind: item.origin === "manual_include_day" ? ("Incluído na Hora" as const) : ("Normal" as const),
-      status: "Ativo" as const,
-    })),
-    ...standCheckins.map((item) => {
-      const exhibitorInfo = eventExhibitorMap.get(item.event_exhibitor_id);
-      const standLabel = exhibitorInfo?.standName
-        ? `${exhibitorInfo.companyName} (${exhibitorInfo.standName})`
-        : exhibitorInfo?.companyName ?? "Stand";
-      return {
-        id: `stand-${item.id}`,
-        participantId: item.participant_id,
-        checkedAt: item.checked_in_at,
-        type: "Stand" as const,
-        context: standLabel,
-        kind: "Stand" as const,
-        status: "Ativo" as const,
-      };
-    }),
-  ].sort((a, b) => (a.checkedAt < b.checkedAt ? 1 : -1));
-
-  const expectedParticipants = new Set(registrations.map((item) => item.participant_id)).size;
-  const presentParticipants = new Set(entryCheckins.map((item) => item.participant_id)).size;
-  const occupancyRate = expectedParticipants > 0 ? Math.round((presentParticipants / expectedParticipants) * 100) : 0;
-
-  const hourlyBuckets = new Set(rows.map((row) => getSaoPauloHour(row.checkedAt)));
-  const checkinsPerHour = rows.length > 0 ? Math.round(rows.length / Math.max(1, hourlyBuckets.size)) : 0;
-
-  const filteredRows = rows.filter((row) => {
-    if (!queryText) {
-      return true;
-    }
-    const participant = participantMap.get(row.participantId);
-    const searchable = [
-      participant?.full_name ?? "",
-      String(participant?.participant_number ?? ""),
-      participant?.document_type ?? "",
-      participant?.document_number ?? "",
-      row.type,
-      row.context,
-      row.kind,
-    ]
-      .join(" ")
-      .toLowerCase();
-
-    return searchable.includes(queryText);
-  });
-
-  const occupancyDelta = occupancyRate - 70;
+  const queryText = q.trim().toLocaleLowerCase("pt-BR");
+  const checkinRows = relevantCheckins
+    .map((checkin) => {
+      const participant = foundation.participantsById.get(checkin.participantId);
+      const eventDay = dayById.get(checkin.eventDayId);
+      const registration = registrationByParticipantDay.get(`${checkin.participantId}:${checkin.eventDayId}`);
+      const registrationType = registration && eventDay && registration.createdAt >= eventDay.cutoff
+        ? "Inscrição no local"
+        : registration
+          ? "Inscrição prevista"
+          : "Sem inscrição prévia";
+      return { checkin, participant, eventDay, registrationType };
+    })
+    .filter((row) => {
+      if (!queryText) return true;
+      const searchable = [
+        row.participant?.fullName ?? "",
+        row.participant?.participantNumber ?? "",
+        row.participant?.documentType ?? "",
+        row.participant?.documentNumber ?? "",
+        row.registrationType,
+        CHECKIN_ORIGIN_LABELS[row.checkin.origin] ?? row.checkin.origin,
+      ]
+        .join(" ")
+        .toLocaleLowerCase("pt-BR");
+      return searchable.includes(queryText);
+    })
+    .sort((left, right) => right.checkin.checkedInAt.localeCompare(left.checkin.checkedInAt));
+  const updatedAt = new Date().toISOString();
+  const dayHref = buildMonitoringHref(eventId, { scope: "day", dayId: selectedDayId, q });
+  const eventHref = buildMonitoringHref(eventId, { scope: "event", dayId: selectedDayId, q });
 
   return (
     <section className="space-y-6">
-      <form className="grid gap-4 xl:grid-cols-[2fr_1fr]">
-        <input type="hidden" name="q" value={q} />
-        <div className="gradient-primary relative overflow-hidden rounded-2xl p-5 text-white sm:p-6">
-          <div className="absolute -right-6 -bottom-6 text-[180px] font-headline font-extrabold text-white/10">*</div>
-          <p className="font-headline text-2xl font-extrabold tracking-tight sm:text-3xl">Monitoramento em Tempo Real</p>
-          <p className="mt-1 text-sm text-white/85">Contagem oficial de participantes presentes no recinto</p>
-          <div className="mt-5 flex flex-wrap items-end gap-x-3 gap-y-1">
-            <span className="font-headline text-5xl font-extrabold leading-none sm:text-6xl">{presentParticipants}</span>
-            <span className="pb-1 text-xl font-medium text-white/85 sm:text-3xl">/ {expectedParticipants} esperados</span>
+      <div className="surface-card rounded-2xl p-5 sm:p-6">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--primary)]">Operação do evento</p>
+            <h1 className="mt-1 font-headline text-3xl font-extrabold tracking-tight text-[var(--foreground)] sm:text-4xl">
+              Monitoramento
+            </h1>
+            <p className="mt-2 text-sm text-muted">
+              Presenças oficiais da recepção. Capturas realizadas por patrocinadores não entram nestes números.
+            </p>
           </div>
-          <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/20">
-            <div
-              className="h-full rounded-full bg-[var(--secondary-soft)] transition-all"
-              style={{ width: `${Math.min(100, Math.max(0, occupancyRate))}%` }}
-            />
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="inline-flex rounded-xl bg-[var(--surface-container)] p-1" aria-label="Período do monitoramento">
+              <Link
+                href={dayHref}
+                aria-current={scope === "day" ? "page" : undefined}
+                className={`rounded-lg px-4 py-2 text-sm font-bold transition-colors ${
+                  scope === "day" ? "bg-white text-[var(--primary)] shadow-sm" : "text-muted hover:text-[var(--foreground)]"
+                }`}
+              >
+                Por dia
+              </Link>
+              <Link
+                href={eventHref}
+                aria-current={scope === "event" ? "page" : undefined}
+                className={`rounded-lg px-4 py-2 text-sm font-bold transition-colors ${
+                  scope === "event" ? "bg-white text-[var(--primary)] shadow-sm" : "text-muted hover:text-[var(--foreground)]"
+                }`}
+              >
+                Evento inteiro
+              </Link>
+            </div>
+
+            <Form action={`/events/${eventId}/lista-do-dia`} scroll={false}>
+              <input type="hidden" name="scope" value={scope} />
+              <input type="hidden" name="day" value={selectedDayId} />
+              <input type="hidden" name="q" value={q} />
+              <SubmitButton
+                pendingLabel="Atualizando..."
+                className="gradient-primary min-h-11 w-full rounded-xl px-4 text-sm font-bold text-white sm:w-auto"
+              >
+                Atualizar agora
+              </SubmitButton>
+            </Form>
           </div>
         </div>
 
-        <div className="grid gap-4">
-          <div className="surface-card rounded-2xl p-5">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Taxa de Ocupação</p>
-            <div className="mt-2 flex items-center gap-2">
-              <p className="font-headline text-4xl font-extrabold text-[var(--primary)]">{occupancyRate}%</p>
-              <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
-                {occupancyDelta >= 0 ? "+" : ""}
-                {occupancyDelta}%
-              </span>
-            </div>
-          </div>
-
-          <div className="surface-card rounded-2xl p-5">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Check-ins/Hora</p>
-            <div className="mt-2 flex items-end gap-2">
-              <p className="font-headline text-4xl font-extrabold text-[var(--primary)]">{checkinsPerHour}</p>
-              <span className="pb-1 text-xs text-muted">média atual</span>
-            </div>
-          </div>
+        <div className="mt-5 flex flex-col gap-3 border-t border-[var(--outline-variant)]/35 pt-4 sm:flex-row sm:items-end sm:justify-between">
+          {scope === "day" ? (
+            <Form action={`/events/${eventId}/lista-do-dia`} scroll={false} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <input type="hidden" name="scope" value="day" />
+              <input type="hidden" name="q" value={q} />
+              <div>
+                <label htmlFor="monitoring-day" className="text-xs font-bold uppercase tracking-wide text-[var(--outline)]">
+                  Dia monitorado
+                </label>
+                <select
+                  id="monitoring-day"
+                  name="day"
+                  defaultValue={selectedDayId}
+                  className="mt-1 block min-h-11 w-full rounded-xl border border-[var(--outline-variant)]/55 bg-white px-4 text-sm font-semibold outline-none focus:border-[var(--primary)] sm:w-auto"
+                >
+                  {eventDays.map((item) => (
+                    <option key={item.id} value={item.id}>{formatDateOnly(item.date)}</option>
+                  ))}
+                </select>
+              </div>
+              <SubmitButton
+                pendingLabel="Carregando..."
+                className="ghost-border min-h-11 rounded-xl bg-white px-4 text-sm font-semibold text-[var(--foreground)]"
+              >
+                Aplicar
+              </SubmitButton>
+            </Form>
+          ) : (
+            <p className="text-sm font-semibold text-[var(--foreground)]">Consolidado de todos os dias do evento</p>
+          )}
+          <p className="text-xs text-muted">Última atualização: {formatSaoPauloDateTime(updatedAt)}</p>
         </div>
-      </form>
-
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <h2 className="font-headline text-3xl font-extrabold tracking-tight text-[var(--foreground)] sm:text-4xl">
-          Últimos Registros
-        </h2>
-
-        <Form
-          action={`/events/${eventId}/lista-do-dia`}
-          scroll={false}
-          className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_auto] md:max-w-lg"
-        >
-          <input type="hidden" name="day" value={selectedDayId} />
-          <input
-            name="q"
-            defaultValue={q}
-            placeholder="Pesquisar por número, nome ou credencial..."
-            className="input-surface w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/10"
-          />
-          <SubmitButton
-            pendingLabel="Buscando..."
-            className="gradient-primary min-h-11 rounded-xl px-4 text-sm font-semibold text-white"
-          >
-            Buscar
-          </SubmitButton>
-        </Form>
       </div>
 
-      <div className="surface-card overflow-hidden rounded-xl">
-        <Form
-          action={`/events/${eventId}/lista-do-dia`}
-          scroll={false}
-          className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 bg-[var(--surface-container-low)] px-4 py-3 sm:flex sm:flex-wrap"
-        >
-          <input type="hidden" name="q" value={q} />
-          <div className="min-w-0">
-            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--outline)]">Dia do Evento</label>
-            <select
-              name="day"
-              defaultValue={selectedDayId}
-              className="mt-1 block min-h-11 w-full rounded-lg bg-[var(--surface-container-lowest)] px-3 text-sm font-semibold outline-none"
-            >
-              {eventDays.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {formatDateOnly(item.date)}
-                </option>
-              ))}
-            </select>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        {[
+          { label: "Inscritos únicos", value: registeredParticipantIds.length, detail: `${relevantRegistrations.length} participações` },
+          { label: "Previstos", value: expectedParticipantIds.length, detail: `${expectedSlots} participações previstas` },
+          { label: "Inscrições no local", value: onsiteSlots, detail: "A partir de 00h do dia" },
+          { label: "Presentes únicos", value: presentParticipantIds.length, detail: `${relevantCheckins.length} presenças acumuladas` },
+          { label: "Ausentes previstos", value: absentExpectedParticipantIds.length, detail: "Previstos ainda sem entrada" },
+          { label: "Presença dos previstos", value: `${presenceRate}%`, detail: `${presentExpectedCount} de ${expectedParticipantIds.length}` },
+        ].map((metric) => (
+          <div key={metric.label} className="surface-card rounded-xl p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-[var(--outline)]">{metric.label}</p>
+            <p className="mt-2 font-headline text-3xl font-extrabold text-[var(--foreground)]">{metric.value}</p>
+            <p className="mt-1 text-xs text-muted">{metric.detail}</p>
           </div>
-          <SubmitButton
-            pendingLabel="Trocando..."
-            className="ghost-border min-h-11 rounded-lg bg-[var(--surface-container-lowest)] px-4 text-sm font-semibold text-[var(--foreground)]"
-          >
-            Trocar dia
-          </SubmitButton>
-        </Form>
+        ))}
+      </div>
 
-        <div className="divide-y divide-[var(--surface-container)] md:hidden">
-          {filteredRows.slice(0, 100).map((row) => {
-            const participant = participantMap.get(row.participantId);
-            return (
-              <article key={row.id} className="p-4">
+      <div className="surface-card overflow-hidden rounded-2xl">
+        <div className="p-5 sm:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className="font-headline text-2xl font-extrabold text-[var(--foreground)]">
+                {scope === "day" ? `Movimento de ${formatDateOnly(selectedDay.date)}` : "Movimento por dia"}
+              </h2>
+              <p className="mt-1 text-sm text-muted">Tabela operacional baseada somente nos check-ins oficiais de entrada.</p>
+            </div>
+            <Form
+              action={`/events/${eventId}/lista-do-dia`}
+              scroll={false}
+              className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:max-w-xl"
+            >
+              <input type="hidden" name="scope" value={scope} />
+              <input type="hidden" name="day" value={selectedDayId} />
+              <label htmlFor="monitoring-search" className="sr-only">Buscar participante</label>
+              <input
+                id="monitoring-search"
+                name="q"
+                defaultValue={q}
+                placeholder="Nome, número ou documento"
+                className="input-surface min-h-11 w-full rounded-xl px-4 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/10"
+              />
+              <SubmitButton
+                pendingLabel="Buscando..."
+                className="gradient-primary min-h-11 rounded-xl px-5 text-sm font-semibold text-white"
+              >
+                Buscar
+              </SubmitButton>
+            </Form>
+          </div>
+        </div>
+
+        {scope === "event" ? (
+          <div className="overflow-x-auto border-t border-[var(--surface-container)]">
+            <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+              <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
+                <tr>
+                  <th className="px-4 py-3">Data</th>
+                  <th className="px-4 py-3">Inscritos únicos</th>
+                  <th className="px-4 py-3">Previstos</th>
+                  <th className="px-4 py-3">No local</th>
+                  <th className="px-4 py-3">Presentes</th>
+                  <th className="px-4 py-3">Ausentes</th>
+                  <th className="px-4 py-3">Presença prevista</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--surface-container)]">
+                {eventDays.map((item) => {
+                  const itemPresentSet = new Set(item.uniquePresentParticipantIds);
+                  const presentExpected = item.uniqueExpectedParticipantIds.filter((id) => itemPresentSet.has(id)).length;
+                  const rate = item.uniqueExpectedParticipantIds.length
+                    ? Math.round((presentExpected / item.uniqueExpectedParticipantIds.length) * 10_000) / 100
+                    : 0;
+                  return (
+                    <tr key={item.id}>
+                      <td className="px-4 py-3 font-semibold">{formatDateOnly(item.date)}</td>
+                      <td className="px-4 py-3">{item.uniqueRegisteredParticipantIds.length}</td>
+                      <td className="px-4 py-3">{item.uniqueExpectedParticipantIds.length}</td>
+                      <td className="px-4 py-3">{item.onsiteRegistrations.length}</td>
+                      <td className="px-4 py-3">{item.uniquePresentParticipantIds.length}</td>
+                      <td className="px-4 py-3">{item.absentExpectedParticipantIds.length}</td>
+                      <td className="px-4 py-3 font-semibold text-[var(--primary)]">{rate}%</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
+        <div className="border-t border-[var(--surface-container)]">
+          <div className="divide-y divide-[var(--surface-container)] md:hidden">
+            {checkinRows.slice(0, 100).map((row) => (
+              <article key={row.checkin.id} className="p-4">
                 <div className="flex items-start gap-3">
                   <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--surface-container-low)] text-sm font-bold text-[var(--primary)]">
-                    {getInitials(participant?.full_name)}
+                    {getInitials(row.participant?.fullName ?? "Participante")}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="break-words font-bold text-[var(--foreground)]">
-                          {participant?.full_name ?? "Participante"}
-                        </p>
-                        <p className="mt-0.5 font-mono text-lg font-black text-[var(--primary)]">
-                          {participant?.participant_number ?? "-"}
-                        </p>
+                      <div>
+                        <p className="font-bold text-[var(--foreground)]">{row.participant?.fullName ?? "Participante"}</p>
+                        <p className="font-mono text-lg font-black text-[var(--primary)]">{row.participant?.participantNumber ?? "-"}</p>
                       </div>
-                      <time className="shrink-0 text-sm font-bold text-[var(--foreground)]">
-                        {formatSaoPauloTime(row.checkedAt, {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </time>
+                      <time className="shrink-0 text-sm font-bold">{formatSaoPauloTime(row.checkin.checkedInAt, { hour: "2-digit", minute: "2-digit" })}</time>
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-1 text-xs font-bold ${
-                          row.kind === "Incluído na Hora"
-                            ? "bg-blue-100 text-blue-700"
-                            : row.kind === "Stand"
-                              ? "bg-violet-100 text-violet-700"
-                              : "bg-emerald-100 text-emerald-700"
-                        }`}
-                      >
-                        {row.kind}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className={`rounded-full px-2 py-1 text-xs font-bold ${
+                        row.registrationType === "Inscrição no local" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
+                      }`}>{row.registrationType}</span>
+                      <span className="rounded-full bg-[var(--surface-container)] px-2 py-1 text-xs font-semibold text-muted">
+                        {CHECKIN_ORIGIN_LABELS[row.checkin.origin] ?? row.checkin.origin}
                       </span>
-                      <span className="text-xs text-muted">{row.context}</span>
                     </div>
-                    <p className="mt-2 text-xs text-muted">
-                      {participant ? `${participant.document_type} ${participant.document_number}` : "Documento não informado"}
-                    </p>
+                    {scope === "event" && row.eventDay ? <p className="mt-2 text-xs text-muted">{formatDateOnly(row.eventDay.date)}</p> : null}
                   </div>
                 </div>
               </article>
-            );
-          })}
-          {!filteredRows.length ? (
-            <p className="px-4 py-8 text-center text-sm text-muted">Nenhum registro encontrado para esse filtro.</p>
-          ) : null}
+            ))}
+            {!checkinRows.length ? <p className="p-8 text-center text-sm text-muted">Nenhuma presença encontrada.</p> : null}
+          </div>
+
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+              <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
+                <tr>
+                  <th className="px-4 py-3">Participante</th>
+                  {scope === "event" ? <th className="px-4 py-3">Data</th> : null}
+                  <th className="px-4 py-3">Check-in</th>
+                  <th className="px-4 py-3">Inscrição</th>
+                  <th className="px-4 py-3">Origem</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--surface-container)]">
+                {checkinRows.slice(0, 100).map((row) => (
+                  <tr key={row.checkin.id}>
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-[var(--foreground)]">{row.participant?.fullName ?? "Participante"}</p>
+                      <p className="text-xs text-muted">
+                        {row.participant ? `${row.participant.participantNumber} · ${row.participant.documentType} ${row.participant.documentNumber}` : "-"}
+                      </p>
+                    </td>
+                    {scope === "event" ? <td className="px-4 py-3">{row.eventDay ? formatDateOnly(row.eventDay.date) : "-"}</td> : null}
+                    <td className="px-4 py-3 font-semibold">{formatSaoPauloTime(row.checkin.checkedInAt)}</td>
+                    <td className="px-4 py-3">{row.registrationType}</td>
+                    <td className="px-4 py-3">{CHECKIN_ORIGIN_LABELS[row.checkin.origin] ?? row.checkin.origin}</td>
+                  </tr>
+                ))}
+                {!checkinRows.length ? (
+                  <tr><td colSpan={scope === "event" ? 5 : 4} className="px-4 py-8 text-center text-sm text-muted">Nenhuma presença encontrada.</td></tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <table className="hidden w-full border-collapse text-left text-sm md:table">
-          <thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]">
-            <tr>
-              <th className="px-4 py-3">Participante</th>
-              <th className="px-4 py-3">Hora do Check-in</th>
-              <th className="px-4 py-3">Tipo</th>
-              <th className="px-4 py-3">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--surface-container)]">
-            {filteredRows.slice(0, 100).map((row) => {
-              const participant = participantMap.get(row.participantId);
-              return (
-                <tr key={row.id}>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--surface-container-low)] text-xs font-bold text-[var(--primary)]">
-                        {getInitials(participant?.full_name)}
-                      </span>
-                      <div>
-                        <p className="font-semibold text-[var(--foreground)]">{participant?.full_name ?? "Participante"}</p>
-                        <p className="text-xs text-muted">
-                          {participant ? `${participant.participant_number} · ${participant.document_type} ${participant.document_number}` : "-"}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-[var(--foreground)]">{formatSaoPauloTime(row.checkedAt)}</td>
-                  <td className="px-4 py-3">
-                    <div className="space-y-1">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-1 text-xs font-bold ${
-                          row.kind === "Incluído na Hora"
-                            ? "bg-blue-100 text-blue-700"
-                            : row.kind === "Stand"
-                              ? "bg-violet-100 text-violet-700"
-                              : "bg-emerald-100 text-emerald-700"
-                        }`}
-                      >
-                        {row.kind}
-                      </span>
-                      <p className="text-xs text-muted">{row.context}</p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700">
-                      <span className="h-2 w-2 rounded-full bg-emerald-600" />
-                      {row.status}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-            {!filteredRows.length ? (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-sm text-muted">
-                  Nenhum registro encontrado para esse filtro.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-
         <div className="flex flex-col gap-1 bg-[var(--surface-container-low)] px-4 py-3 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
-          <span>
-            Exibindo {Math.min(100, filteredRows.length)} de {rows.length} check-ins
-          </span>
-          <span>Atualizado em tempo real</span>
+          <span>Exibindo {Math.min(100, checkinRows.length)} de {checkinRows.length} presenças filtradas</span>
+          <span>Atualização manual para preservar recursos do banco</span>
         </div>
       </div>
     </section>
