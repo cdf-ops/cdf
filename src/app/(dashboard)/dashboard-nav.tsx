@@ -25,6 +25,7 @@ export function DashboardNav({ role }: DashboardNavProps) {
     { href: "/usuarios", label: "Usuários", visible: ["super_adm", "organizador"].includes(role) },
     { href: "/patrocinadores", label: "Patrocinadores", visible: ["super_adm", "organizador"].includes(role) },
     { href: "/participantes", label: "Participantes", visible: ["super_adm", "organizador"].includes(role) },
+    { href: "/relatorios", label: "Relatórios", visible: ["super_adm", "organizador"].includes(role) },
     { href: "/integracoes", label: "Integrações", visible: role === "super_adm" },
   ];
   const visibleItems = items.filter((item) => item.visible);

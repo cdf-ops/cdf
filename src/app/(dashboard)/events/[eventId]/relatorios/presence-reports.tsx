@@ -9,6 +9,7 @@ import type {
   ReportCheckin,
   ReportParticipant,
 } from "@/lib/reports/event-report-foundation";
+import { buildReportHref, type ReportNavigation } from "@/lib/reports/report-navigation";
 
 export type AttendanceFilter = "present" | "absent" | "all";
 
@@ -16,6 +17,7 @@ type PresenceTab = Extract<EventReportTab, "presenca-dia" | "presenca-total" | "
 
 type PresenceReportsProps = {
   eventId: string;
+  navigation: ReportNavigation;
   activeTab: PresenceTab;
   foundation: EventReportFoundation;
   selectedDayId: string;
@@ -79,7 +81,7 @@ function paginate<T>(rows: T[], requestedPage: number, pageSize: number) {
 }
 
 function buildPresenceHref(
-  eventId: string,
+  navigation: ReportNavigation,
   values: {
     tab: PresenceTab;
     day: string;
@@ -97,11 +99,11 @@ function buildPresenceHref(
     pageSize: String(values.pageSize),
   });
   if (values.q.trim()) params.set("q", values.q.trim());
-  return `/events/${eventId}/relatorios?${params.toString()}`;
+  return `${navigation.basePath}?${params.toString()}`;
 }
 
 function Pagination({
-  eventId,
+  navigation,
   tab,
   day,
   q,
@@ -111,7 +113,7 @@ function Pagination({
   totalPages,
   totalRows,
 }: {
-  eventId: string;
+  navigation: ReportNavigation;
   tab: PresenceTab;
   day: string;
   q: string;
@@ -126,8 +128,8 @@ function Pagination({
     <div className="flex flex-col gap-3 bg-[var(--surface-container-low)] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
       <p className="text-muted">Página {currentPage} de {totalPages} · {totalRows} resultado(s)</p>
       <div className="flex gap-2">
-        {currentPage > 1 ? <Link href={buildPresenceHref(eventId, { ...values, page: currentPage - 1 })} className="rounded-lg border bg-white px-3 py-2 font-semibold">Anterior</Link> : null}
-        {currentPage < totalPages ? <Link href={buildPresenceHref(eventId, { ...values, page: currentPage + 1 })} className="rounded-lg border bg-white px-3 py-2 font-semibold">Próxima</Link> : null}
+        {currentPage > 1 ? <Link href={buildPresenceHref(navigation, { ...values, page: currentPage - 1 })} className="rounded-lg border bg-white px-3 py-2 font-semibold">Anterior</Link> : null}
+        {currentPage < totalPages ? <Link href={buildPresenceHref(navigation, { ...values, page: currentPage + 1 })} className="rounded-lg border bg-white px-3 py-2 font-semibold">Próxima</Link> : null}
       </div>
     </div>
   );
@@ -168,7 +170,7 @@ function CertificateActions({
 }
 
 function PresenceFilters({
-  eventId,
+  navigation,
   activeTab,
   foundation,
   selectedDayId,
@@ -179,7 +181,7 @@ function PresenceFilters({
   if (activeTab === "presenca-dia") {
     return (
       <div className="surface-card rounded-2xl p-5 sm:p-6">
-        <Form action={`/events/${eventId}/relatorios`} scroll={false} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <Form action={navigation.basePath} scroll={false} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <input type="hidden" name="tab" value={activeTab} />
           <div>
             <label htmlFor="presence-summary-day" className="text-xs font-bold uppercase tracking-wide text-[var(--outline)]">Período</label>
@@ -196,7 +198,7 @@ function PresenceFilters({
 
   return (
     <div className="surface-card rounded-2xl p-5 sm:p-6">
-      <Form action={`/events/${eventId}/relatorios`} scroll={false} className="grid gap-3 md:grid-cols-2 xl:grid-cols-[2fr_repeat(3,1fr)_auto] xl:items-end">
+      <Form action={navigation.basePath} scroll={false} className="grid gap-3 md:grid-cols-2 xl:grid-cols-[2fr_repeat(3,1fr)_auto] xl:items-end">
         <input type="hidden" name="tab" value={activeTab} />
         <div>
           <label htmlFor="presence-search" className="text-xs font-bold uppercase tracking-wide text-[var(--outline)]">Busca</label>
@@ -226,14 +228,14 @@ function PresenceFilters({
         <SubmitButton pendingLabel="Aplicando..." className="gradient-primary min-h-11 rounded-xl px-5 text-sm font-bold text-white">Aplicar</SubmitButton>
       </Form>
       <div className="mt-3 flex justify-end">
-        <Link href={`/events/${eventId}/relatorios?tab=${activeTab}`} className="text-sm font-semibold text-[var(--primary)] hover:underline">Limpar filtros</Link>
+        <Link href={buildReportHref(navigation, { tab: activeTab })} className="text-sm font-semibold text-[var(--primary)] hover:underline">Limpar filtros</Link>
       </div>
     </div>
   );
 }
 
 export function PresenceReports(props: PresenceReportsProps) {
-  const { eventId, activeTab, foundation, selectedDayId, searchText, attendanceFilter, requestedPage, pageSize } = props;
+  const { eventId, navigation, activeTab, foundation, selectedDayId, searchText, attendanceFilter, requestedPage, pageSize } = props;
   const selectedDayIds = new Set(selectedDayId === "all" ? foundation.days.map((day) => day.id) : [selectedDayId]);
   const dayById = new Map(foundation.days.map((day) => [day.id, day]));
   const checkinByParticipantDay = new Map(
@@ -269,7 +271,7 @@ export function PresenceReports(props: PresenceReportsProps) {
                   const presentSet = new Set(day.uniquePresentParticipantIds);
                   const absent = day.uniqueRegisteredParticipantIds.filter((id) => !presentSet.has(id)).length;
                   const rate = day.uniqueRegisteredParticipantIds.length ? Math.round((day.uniquePresentParticipantIds.length / day.uniqueRegisteredParticipantIds.length) * 10_000) / 100 : 0;
-                  return <tr key={day.id}><td className="px-4 py-3 font-semibold">{formatDateOnly(day.date)}</td><td className="px-4 py-3">{day.uniqueRegisteredParticipantIds.length}</td><td className="px-4 py-3">{day.uniqueExpectedParticipantIds.length}</td><td className="px-4 py-3">{day.onsiteRegistrations.length}</td><td className="px-4 py-3">{day.uniquePresentParticipantIds.length}</td><td className="px-4 py-3">{absent}</td><td className="px-4 py-3 font-semibold text-[var(--primary)]">{rate}%</td><td className="px-4 py-3 text-right"><Link href={`/events/${eventId}/relatorios?tab=presentes&day=${day.id}&attendance=all`} className="text-sm font-bold text-[var(--primary)] hover:underline">Ver participantes</Link></td></tr>;
+                  return <tr key={day.id}><td className="px-4 py-3 font-semibold">{formatDateOnly(day.date)}</td><td className="px-4 py-3">{day.uniqueRegisteredParticipantIds.length}</td><td className="px-4 py-3">{day.uniqueExpectedParticipantIds.length}</td><td className="px-4 py-3">{day.onsiteRegistrations.length}</td><td className="px-4 py-3">{day.uniquePresentParticipantIds.length}</td><td className="px-4 py-3">{absent}</td><td className="px-4 py-3 font-semibold text-[var(--primary)]">{rate}%</td><td className="px-4 py-3 text-right"><Link href={buildReportHref(navigation, { tab: "presentes", day: day.id, attendance: "all" })} className="text-sm font-bold text-[var(--primary)] hover:underline">Ver participantes</Link></td></tr>;
                 })}
               </tbody>
             </table>
@@ -301,7 +303,7 @@ export function PresenceReports(props: PresenceReportsProps) {
 
   if (activeTab === "presenca-total") {
     const pagination = paginate(participantPresenceRows, requestedPage, pageSize);
-    const redirectUrl = buildPresenceHref(eventId, { tab: activeTab, day: selectedDayId, q: searchText, attendance: "present", page: pagination.currentPage, pageSize });
+    const redirectUrl = buildPresenceHref(navigation, { tab: activeTab, day: selectedDayId, q: searchText, attendance: "present", page: pagination.currentPage, pageSize });
     return (
       <>
         {props.notice ? <p className={`rounded-xl px-4 py-3 text-sm font-semibold ${props.noticeType === "success" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-[var(--danger)]"}`}>{props.notice}</p> : null}
@@ -320,7 +322,7 @@ export function PresenceReports(props: PresenceReportsProps) {
           <div className="hidden overflow-x-auto border-t border-[var(--surface-container)] lg:block">
             <table className="w-full min-w-[1100px] border-collapse text-left text-sm"><thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]"><tr><th className="px-4 py-3">Número</th><th className="px-4 py-3">Participante</th><th className="px-4 py-3">Contato</th><th className="px-4 py-3">Dias presentes</th><th className="px-4 py-3">Primeira entrada</th><th className="px-4 py-3">Última entrada</th><th className="px-4 py-3 text-right">Certificados</th></tr></thead><tbody className="divide-y divide-[var(--surface-container)]">{pagination.rows.map((row) => <tr key={row.participant.id}><td className="px-4 py-3 font-mono text-lg font-black text-[var(--primary)]">{row.participant.participantNumber}</td><td className="px-4 py-3"><Link href={`/participantes/${row.participant.id}`} className="font-semibold hover:text-[var(--primary)] hover:underline">{row.participant.fullName}</Link><p className="text-xs text-muted">{row.participant.documentType} {row.participant.documentNumber}</p></td><td className="px-4 py-3"><p>{row.participant.email}</p><p className="text-xs text-muted">{row.participant.phone}</p></td><td className="px-4 py-3"><div className="flex flex-wrap gap-1">{row.days.map((day) => <span key={day.id} className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">{formatDateOnly(day.date)}</span>)}</div></td><td className="px-4 py-3">{formatSaoPauloDateTime(row.checkins[0].checkedInAt)}</td><td className="px-4 py-3">{formatSaoPauloDateTime(row.checkins[row.checkins.length - 1].checkedInAt)}</td><td className="px-4 py-3 text-right"><CertificateActions eventId={eventId} participantId={row.participant.id} participantNumber={row.participant.participantNumber} days={row.days} redirectUrl={redirectUrl} /></td></tr>)}</tbody></table>
           </div>
-          <Pagination eventId={eventId} tab={activeTab} day={selectedDayId} q={searchText} attendance="present" pageSize={pageSize} currentPage={pagination.currentPage} totalPages={pagination.totalPages} totalRows={participantPresenceRows.length} />
+          <Pagination navigation={navigation} tab={activeTab} day={selectedDayId} q={searchText} attendance="present" pageSize={pageSize} currentPage={pagination.currentPage} totalPages={pagination.totalPages} totalRows={participantPresenceRows.length} />
         </div>
       </>
     );
@@ -350,7 +352,7 @@ export function PresenceReports(props: PresenceReportsProps) {
         <div className="p-5 sm:p-6"><h2 className="font-headline text-xl font-extrabold">Participantes por situação</h2><p className="mt-1 text-sm text-muted">Use o filtro de situação para consultar presentes, ausentes ou todos os inscritos.</p></div>
         <div className="divide-y divide-[var(--surface-container)] border-t border-[var(--surface-container)] lg:hidden">{pagination.rows.map((row) => <article key={`${row.participant.id}-${row.dayId}`} className="p-4"><div className="flex items-start justify-between gap-3"><div><Link href={`/participantes/${row.participant.id}`} className="font-bold hover:text-[var(--primary)]">{row.participant.fullName}</Link><p className="font-mono text-lg font-black text-[var(--primary)]">{row.participant.participantNumber}</p></div><span className={`rounded-full px-2 py-1 text-xs font-bold ${row.status === "present" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{row.status === "present" ? "Presente" : "Ausente"}</span></div><p className="mt-2 text-sm">{formatDateOnly(row.date)} · {row.registrationType}</p><p className="mt-1 text-sm text-muted">{row.checkin ? formatSaoPauloTime(row.checkin.checkedInAt) : "Sem check-in"}</p></article>)}{!pagination.rows.length ? <p className="p-8 text-center text-sm text-muted">Nenhum participante encontrado.</p> : null}</div>
         <div className="hidden overflow-x-auto border-t border-[var(--surface-container)] lg:block"><table className="w-full min-w-[980px] border-collapse text-left text-sm"><thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]"><tr><th className="px-4 py-3">Data</th><th className="px-4 py-3">Número</th><th className="px-4 py-3">Participante</th><th className="px-4 py-3">Documento</th><th className="px-4 py-3">Inscrição</th><th className="px-4 py-3">Situação</th><th className="px-4 py-3">Horário</th></tr></thead><tbody className="divide-y divide-[var(--surface-container)]">{pagination.rows.map((row) => <tr key={`${row.participant.id}-${row.dayId}`}><td className="px-4 py-3 font-semibold">{formatDateOnly(row.date)}</td><td className="px-4 py-3 font-mono text-lg font-black text-[var(--primary)]">{row.participant.participantNumber}</td><td className="px-4 py-3"><Link href={`/participantes/${row.participant.id}`} className="font-semibold hover:text-[var(--primary)] hover:underline">{row.participant.fullName}</Link><p className="text-xs text-muted">{row.participant.email}</p></td><td className="px-4 py-3">{row.participant.documentType} {row.participant.documentNumber}</td><td className="px-4 py-3">{row.registrationType}</td><td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-bold ${row.status === "present" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{row.status === "present" ? "Presente" : "Ausente"}</span></td><td className="px-4 py-3">{row.checkin ? formatSaoPauloTime(row.checkin.checkedInAt) : "-"}</td></tr>)}</tbody></table></div>
-        <Pagination eventId={eventId} tab={activeTab} day={selectedDayId} q={searchText} attendance={attendanceFilter} pageSize={pageSize} currentPage={pagination.currentPage} totalPages={pagination.totalPages} totalRows={attendanceRows.length} />
+        <Pagination navigation={navigation} tab={activeTab} day={selectedDayId} q={searchText} attendance={attendanceFilter} pageSize={pageSize} currentPage={pagination.currentPage} totalPages={pagination.totalPages} totalRows={attendanceRows.length} />
       </div>
     </>
   );

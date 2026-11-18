@@ -260,7 +260,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           <div className="surface-card rounded-2xl p-6">
             <p className="font-headline text-2xl font-bold tracking-tight text-[var(--foreground)]">Relatorios Globais</p>
             <p className="mt-2 text-sm text-muted">Visualize o desempenho consolidado dos eventos.</p>
-            <Link href="/events" className="mt-5 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--primary)]">
+            <Link href="/relatorios" className="mt-5 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--primary)]">
               Ver estatisticas
             </Link>
           </div>

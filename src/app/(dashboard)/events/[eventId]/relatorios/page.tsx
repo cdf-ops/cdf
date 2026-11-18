@@ -8,6 +8,7 @@ import {
 import { RaffleReport } from "@/app/(dashboard)/events/[eventId]/relatorios/raffle-report";
 import { ReportTabs, type EventReportTab } from "@/app/(dashboard)/events/[eventId]/relatorios/report-tabs";
 import { SubmitButton } from "@/components/submit-button";
+import type { AppRole } from "@/lib/auth/roles";
 import { requireSession } from "@/lib/auth/session";
 import { formatDateOnly, formatSaoPauloDateTime } from "@/lib/date-time";
 import {
@@ -15,21 +16,24 @@ import {
   type ReportParticipant,
   type ReportRegistration,
 } from "@/lib/reports/event-report-foundation";
+import { buildReportHref, type ReportNavigation } from "@/lib/reports/report-navigation";
+
+export type ReportSearchParams = {
+  tab?: string;
+  day?: string;
+  q?: string;
+  status?: string;
+  kind?: string;
+  page?: string;
+  pageSize?: string;
+  attendance?: string;
+  notice?: string;
+  notice_type?: "success" | "error";
+};
 
 type ReportsPageProps = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{
-    tab?: string;
-    day?: string;
-    q?: string;
-    status?: string;
-    kind?: string;
-    page?: string;
-    pageSize?: string;
-    attendance?: string;
-    notice?: string;
-    notice_type?: "success" | "error";
-  }>;
+  searchParams: Promise<ReportSearchParams>;
 };
 
 type RegistrationStatusFilter = "active" | "cancelled" | "all";
@@ -94,7 +98,7 @@ function parsePageSize(value?: string) {
 }
 
 function buildListHref(
-  eventId: string,
+  navigation: ReportNavigation,
   values: {
     day: string;
     q: string;
@@ -113,7 +117,7 @@ function buildListHref(
     pageSize: String(values.pageSize),
   });
   if (values.q.trim()) params.set("q", values.q.trim());
-  return `/events/${eventId}/relatorios?${params.toString()}`;
+  return `${navigation.basePath}?${params.toString()}`;
 }
 
 function registrationMatchesKind(
@@ -131,6 +135,28 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
   const session = await requireSession(["super_adm", "organizador"]);
   const { eventId } = await params;
   const query = await searchParams;
+  return EventReportsView({
+    eventId,
+    query,
+    role: session.role,
+    navigation: {
+      basePath: `/events/${eventId}/relatorios`,
+      overviewPath: `/events/${eventId}/lista-do-dia?scope=event`,
+    },
+  });
+}
+
+export async function EventReportsView({
+  eventId,
+  query,
+  role,
+  navigation,
+}: {
+  eventId: string;
+  query: ReportSearchParams;
+  role: AppRole;
+  navigation: ReportNavigation;
+}) {
   const activeTab = parseTab(query.tab);
   const statusFilter = parseStatus(query.status);
   const kindFilter = parseKind(query.kind);
@@ -244,7 +270,7 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
             </p>
           </div>
           <div className="flex flex-col items-stretch gap-2 sm:items-end">
-            <Form action={`/events/${eventId}/relatorios`} scroll={false}>
+            <Form action={navigation.basePath} scroll={false}>
               <input type="hidden" name="tab" value={activeTab} />
               <input type="hidden" name="day" value={selectedDayId} />
               {activeTab === "lista-inscritos" ? (
@@ -277,13 +303,13 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
             <p className="text-xs text-muted">Última atualização: {formatSaoPauloDateTime(updatedAt)}</p>
           </div>
         </div>
-        <ReportTabs eventId={eventId} activeTab={activeTab} />
+        <ReportTabs activeTab={activeTab} navigation={navigation} />
       </div>
 
       {activeTab === "resumo-inscricoes" ? (
         <>
           <div className="surface-card rounded-2xl p-5 sm:p-6">
-            <Form action={`/events/${eventId}/relatorios`} scroll={false} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <Form action={navigation.basePath} scroll={false} className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <input type="hidden" name="tab" value="resumo-inscricoes" />
               <div>
                 <label htmlFor="summary-day" className="text-xs font-bold uppercase tracking-wide text-[var(--outline)]">
@@ -380,7 +406,7 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
       ) : activeTab === "lista-inscritos" ? (
         <>
           <div className="surface-card rounded-2xl p-5 sm:p-6">
-            <Form action={`/events/${eventId}/relatorios`} scroll={false} className="grid gap-3 md:grid-cols-2 xl:grid-cols-[2fr_repeat(4,1fr)_auto] xl:items-end">
+            <Form action={navigation.basePath} scroll={false} className="grid gap-3 md:grid-cols-2 xl:grid-cols-[2fr_repeat(4,1fr)_auto] xl:items-end">
               <input type="hidden" name="tab" value="lista-inscritos" />
               <div>
                 <label htmlFor="registration-search" className="text-xs font-bold uppercase tracking-wide text-[var(--outline)]">Busca</label>
@@ -414,14 +440,14 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
               <SubmitButton pendingLabel="Filtrando..." className="gradient-primary min-h-11 rounded-xl px-5 text-sm font-bold text-white">Aplicar</SubmitButton>
             </Form>
             <div className="mt-3 flex justify-end">
-              <Link href={`/events/${eventId}/relatorios?tab=lista-inscritos`} className="text-sm font-semibold text-[var(--primary)] hover:underline">Limpar filtros</Link>
+              <Link href={buildReportHref(navigation, { tab: "lista-inscritos" })} className="text-sm font-semibold text-[var(--primary)] hover:underline">Limpar filtros</Link>
             </div>
           </div>
 
           <div className="surface-card overflow-hidden rounded-2xl">
             <div className="flex flex-col gap-2 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
               <div><h2 className="font-headline text-xl font-extrabold">Participantes inscritos</h2><p className="mt-1 text-sm text-muted">{participantRows.length} participante(s) encontrado(s).</p></div>
-              {session.role === "super_adm" ? <p className="text-xs font-semibold text-muted">Exportações serão liberadas no Bloco 7</p> : null}
+              {role === "super_adm" ? <p className="text-xs font-semibold text-muted">Exportações serão liberadas no Bloco 7</p> : null}
             </div>
 
             <div className="divide-y divide-[var(--surface-container)] border-t border-[var(--surface-container)] lg:hidden">
@@ -470,15 +496,15 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
             <div className="flex flex-col gap-3 bg-[var(--surface-container-low)] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
               <p className="text-muted">Página {currentPage} de {totalPages} · {participantRows.length} resultado(s)</p>
               <div className="flex gap-2">
-                {currentPage > 1 ? <Link href={buildListHref(eventId, { ...listHrefValues, page: currentPage - 1 })} className="rounded-lg border bg-white px-3 py-2 font-semibold">Anterior</Link> : null}
-                {currentPage < totalPages ? <Link href={buildListHref(eventId, { ...listHrefValues, page: currentPage + 1 })} className="rounded-lg border bg-white px-3 py-2 font-semibold">Próxima</Link> : null}
+                {currentPage > 1 ? <Link href={buildListHref(navigation, { ...listHrefValues, page: currentPage - 1 })} className="rounded-lg border bg-white px-3 py-2 font-semibold">Anterior</Link> : null}
+                {currentPage < totalPages ? <Link href={buildListHref(navigation, { ...listHrefValues, page: currentPage + 1 })} className="rounded-lg border bg-white px-3 py-2 font-semibold">Próxima</Link> : null}
               </div>
             </div>
           </div>
         </>
       ) : activeTab === "sorteados" ? (
         <RaffleReport
-          eventId={eventId}
+          navigation={navigation}
           foundation={foundation}
           selectedDayId={selectedDayId}
           searchText={searchText}
@@ -489,6 +515,7 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
       ) : (
         <PresenceReports
           eventId={eventId}
+          navigation={navigation}
           activeTab={activeTab}
           foundation={foundation}
           selectedDayId={selectedDayId}

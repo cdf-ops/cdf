@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { buildReportHref, type ReportNavigation } from "@/lib/reports/report-navigation";
 
 export type EventReportTab =
   | "resumo-inscricoes"
@@ -9,11 +10,11 @@ export type EventReportTab =
   | "sorteados";
 
 type ReportTabsProps = {
-  eventId: string;
   activeTab: EventReportTab;
+  navigation: ReportNavigation;
 };
 
-export function ReportTabs({ eventId, activeTab }: ReportTabsProps) {
+export function ReportTabs({ activeTab, navigation }: ReportTabsProps) {
   const tabs: { id: EventReportTab; label: string }[] = [
     { id: "resumo-inscricoes", label: "Resumo de inscrições" },
     { id: "lista-inscritos", label: "Lista de inscritos" },
@@ -27,7 +28,7 @@ export function ReportTabs({ eventId, activeTab }: ReportTabsProps) {
     <nav aria-label="Seções dos relatórios" className="overflow-x-auto">
       <div className="flex min-w-max gap-2 border-b border-[var(--outline-variant)]/40 px-1">
         <Link
-          href={`/events/${eventId}/lista-do-dia?scope=event`}
+          href={navigation.overviewPath}
           className="border-b-2 border-transparent px-3 py-3 text-sm font-semibold text-muted hover:text-[var(--primary)]"
         >
           Visão geral
@@ -35,7 +36,7 @@ export function ReportTabs({ eventId, activeTab }: ReportTabsProps) {
         {tabs.map((tab) => (
           <Link
             key={tab.id}
-            href={`/events/${eventId}/relatorios?tab=${tab.id}`}
+            href={buildReportHref(navigation, { tab: tab.id })}
             aria-current={activeTab === tab.id ? "page" : undefined}
             className={`border-b-2 px-3 py-3 text-sm font-bold transition-colors ${
               activeTab === tab.id

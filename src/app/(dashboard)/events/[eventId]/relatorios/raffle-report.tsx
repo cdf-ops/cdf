@@ -3,12 +3,13 @@ import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
 import { formatDateOnly, formatSaoPauloDateTime } from "@/lib/date-time";
 import type { EventReportFoundation, ReportParticipant } from "@/lib/reports/event-report-foundation";
+import { buildReportHref, type ReportNavigation } from "@/lib/reports/report-navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type RaffleStatusFilter = "active" | "cancelled" | "all";
 
 type RaffleReportProps = {
-  eventId: string;
+  navigation: ReportNavigation;
   foundation: EventReportFoundation;
   selectedDayId: string;
   searchText: string;
@@ -35,7 +36,7 @@ type WinnerRow = {
 };
 
 function buildRaffleHref(
-  eventId: string,
+  navigation: ReportNavigation,
   values: { day: string; q: string; status: RaffleStatusFilter; page: number; pageSize: number }
 ) {
   const params = new URLSearchParams({
@@ -46,7 +47,7 @@ function buildRaffleHref(
     pageSize: String(values.pageSize),
   });
   if (values.q.trim()) params.set("q", values.q.trim());
-  return `/events/${eventId}/relatorios?${params.toString()}`;
+  return `${navigation.basePath}?${params.toString()}`;
 }
 
 function matchesParticipant(participant: ReportParticipant | undefined, searchText: string) {
@@ -72,7 +73,7 @@ function matchesParticipant(participant: ReportParticipant | undefined, searchTe
 }
 
 export async function RaffleReport({
-  eventId,
+  navigation,
   foundation,
   selectedDayId,
   searchText,
@@ -196,7 +197,7 @@ export async function RaffleReport({
   return (
     <>
       <div className="surface-card rounded-2xl p-5 sm:p-6">
-        <Form action={`/events/${eventId}/relatorios`} scroll={false} className="grid gap-3 md:grid-cols-2 xl:grid-cols-[2fr_repeat(3,1fr)_auto] xl:items-end">
+        <Form action={navigation.basePath} scroll={false} className="grid gap-3 md:grid-cols-2 xl:grid-cols-[2fr_repeat(3,1fr)_auto] xl:items-end">
           <input type="hidden" name="tab" value="sorteados" />
           <div>
             <label htmlFor="raffle-search" className="text-xs font-bold uppercase tracking-wide text-[var(--outline)]">Busca</label>
@@ -223,7 +224,7 @@ export async function RaffleReport({
           </div>
           <SubmitButton pendingLabel="Aplicando..." className="gradient-primary min-h-11 rounded-xl px-5 text-sm font-bold text-white">Aplicar</SubmitButton>
         </Form>
-        <div className="mt-3 flex justify-end"><Link href={`/events/${eventId}/relatorios?tab=sorteados`} className="text-sm font-semibold text-[var(--primary)] hover:underline">Limpar filtros</Link></div>
+        <div className="mt-3 flex justify-end"><Link href={buildReportHref(navigation, { tab: "sorteados" })} className="text-sm font-semibold text-[var(--primary)] hover:underline">Limpar filtros</Link></div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -260,7 +261,7 @@ export async function RaffleReport({
         <div className="hidden overflow-x-auto border-t border-[var(--surface-container)] lg:block">
           <table className="w-full min-w-[1120px] border-collapse text-left text-sm"><thead className="bg-[var(--surface-container-high)] text-xs uppercase tracking-wide text-[var(--outline)]"><tr><th className="px-4 py-3">Data</th><th className="px-4 py-3">Rodada</th><th className="px-4 py-3">Número</th><th className="px-4 py-3">Participante</th><th className="px-4 py-3">Documento</th><th className="px-4 py-3">Contato</th><th className="px-4 py-3">Prêmio</th><th className="px-4 py-3">Status</th></tr></thead><tbody className="divide-y divide-[var(--surface-container)]">{paginatedRows.map((row) => <tr key={row.winner.id}><td className="px-4 py-3 font-semibold">{formatDateOnly(row.day.date)}</td><td className="px-4 py-3">{row.roundNumber}</td><td className="px-4 py-3 font-mono text-lg font-black text-[var(--primary)]">{row.participant?.participantNumber ?? "-"}</td><td className="px-4 py-3">{row.participant ? <Link href={`/participantes/${row.participant.id}`} className="font-semibold hover:text-[var(--primary)] hover:underline">{row.participant.fullName}</Link> : "Participante"}</td><td className="px-4 py-3">{row.participant ? `${row.participant.documentType} ${row.participant.documentNumber}` : "-"}</td><td className="px-4 py-3">{row.participant ? <><p>{row.participant.email}</p><p className="text-xs text-muted">{row.participant.phone}</p></> : "-"}</td><td className="px-4 py-3">{row.raffle.prizeDescription || "Não informado"}</td><td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-bold ${row.raffle.deletedAt ? "bg-slate-100 text-slate-700" : "bg-emerald-100 text-emerald-700"}`}>{row.raffle.deletedAt ? "Cancelada" : "Válida"}</span></td></tr>)}</tbody></table>
         </div>
-        <div className="flex flex-col gap-3 bg-[var(--surface-container-low)] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"><p className="text-muted">Página {currentPage} de {totalPages} · {detailedRows.length} resultado(s)</p><div className="flex gap-2">{currentPage > 1 ? <Link href={buildRaffleHref(eventId, { ...hrefValues, page: currentPage - 1 })} className="rounded-lg border bg-white px-3 py-2 font-semibold">Anterior</Link> : null}{currentPage < totalPages ? <Link href={buildRaffleHref(eventId, { ...hrefValues, page: currentPage + 1 })} className="rounded-lg border bg-white px-3 py-2 font-semibold">Próxima</Link> : null}</div></div>
+        <div className="flex flex-col gap-3 bg-[var(--surface-container-low)] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"><p className="text-muted">Página {currentPage} de {totalPages} · {detailedRows.length} resultado(s)</p><div className="flex gap-2">{currentPage > 1 ? <Link href={buildRaffleHref(navigation, { ...hrefValues, page: currentPage - 1 })} className="rounded-lg border bg-white px-3 py-2 font-semibold">Anterior</Link> : null}{currentPage < totalPages ? <Link href={buildRaffleHref(navigation, { ...hrefValues, page: currentPage + 1 })} className="rounded-lg border bg-white px-3 py-2 font-semibold">Próxima</Link> : null}</div></div>
       </div>
     </>
   );
