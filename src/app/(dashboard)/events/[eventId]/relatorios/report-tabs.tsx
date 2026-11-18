@@ -5,7 +5,8 @@ export type EventReportTab =
   | "lista-inscritos"
   | "presenca-dia"
   | "presenca-total"
-  | "presentes";
+  | "presentes"
+  | "sorteados";
 
 type ReportTabsProps = {
   eventId: string;
@@ -19,6 +20,7 @@ export function ReportTabs({ eventId, activeTab }: ReportTabsProps) {
     { id: "presenca-dia", label: "Presença por dia" },
     { id: "presenca-total", label: "Presença total" },
     { id: "presentes", label: "Presentes" },
+    { id: "sorteados", label: "Sorteados" },
   ];
 
   return (
@@ -44,13 +46,6 @@ export function ReportTabs({ eventId, activeTab }: ReportTabsProps) {
             {tab.label}
           </Link>
         ))}
-        <span
-          aria-disabled="true"
-          title="Será liberado no próximo bloco"
-          className="cursor-not-allowed border-b-2 border-transparent px-3 py-3 text-sm font-semibold text-[var(--outline)]/55"
-        >
-          Sorteados
-        </span>
       </div>
     </nav>
   );

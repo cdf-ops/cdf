@@ -5,6 +5,7 @@ import {
   PresenceReports,
   type AttendanceFilter,
 } from "@/app/(dashboard)/events/[eventId]/relatorios/presence-reports";
+import { RaffleReport } from "@/app/(dashboard)/events/[eventId]/relatorios/raffle-report";
 import { ReportTabs, type EventReportTab } from "@/app/(dashboard)/events/[eventId]/relatorios/report-tabs";
 import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
@@ -60,7 +61,8 @@ function parseTab(value?: string): EventReportTab {
     value === "lista-inscritos" ||
     value === "presenca-dia" ||
     value === "presenca-total" ||
-    value === "presentes"
+    value === "presentes" ||
+    value === "sorteados"
   ) {
     return value;
   }
@@ -256,6 +258,12 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
                 <>
                   <input type="hidden" name="q" value={searchText} />
                   <input type="hidden" name="attendance" value={attendanceFilter} />
+                  <input type="hidden" name="pageSize" value={pageSize} />
+                </>
+              ) : activeTab === "sorteados" ? (
+                <>
+                  <input type="hidden" name="q" value={searchText} />
+                  <input type="hidden" name="status" value={statusFilter} />
                   <input type="hidden" name="pageSize" value={pageSize} />
                 </>
               ) : null}
@@ -468,6 +476,16 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
             </div>
           </div>
         </>
+      ) : activeTab === "sorteados" ? (
+        <RaffleReport
+          eventId={eventId}
+          foundation={foundation}
+          selectedDayId={selectedDayId}
+          searchText={searchText}
+          statusFilter={statusFilter}
+          requestedPage={requestedPage}
+          pageSize={pageSize}
+        />
       ) : (
         <PresenceReports
           eventId={eventId}
