@@ -100,6 +100,7 @@ export async function generateBadgeAction(formData: FormData) {
     .select("id")
     .in("event_day_id", eventDays.map((day) => day.id))
     .eq("participant_id", parsed.data.participantId)
+    .eq("status", "active")
     .limit(1)
     .maybeSingle();
   if (!registration) throw new Error("Participante não está inscrito neste evento.");

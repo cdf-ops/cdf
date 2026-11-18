@@ -3,6 +3,11 @@ import { notFound } from "next/navigation";
 import { ParticipantDetailsForm } from "@/app/(dashboard)/participantes/[participantId]/participant-details-form";
 import { requireSession } from "@/lib/auth/session";
 import { formatDateOnly, formatSaoPauloDateTime } from "@/lib/date-time";
+import {
+  PARTICIPANT_HISTORY_FIELD_LABELS,
+  type ParticipantChange,
+  type ParticipantHistoryField,
+} from "@/lib/participants/history";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type ParticipantDetailPageProps = {
@@ -25,6 +30,19 @@ function formatDaysSince(value: string | null) {
   return elapsedDays === 0 ? "Hoje" : `${elapsedDays} dia${elapsedDays === 1 ? "" : "s"}`;
 }
 
+const HISTORY_SOURCE_LABELS = {
+  public_registration: "Inscrição pública",
+  reception: "Recepção",
+  admin: "Administração do evento",
+  participant_admin: "Cadastro de participantes",
+  import: "Importação",
+  system: "Sistema",
+} as const;
+
+function formatHistoryValue(value: string | null) {
+  return value || "Não informado";
+}
+
 export default async function ParticipantDetailPage({ params }: ParticipantDetailPageProps) {
   await requireSession(["super_adm", "organizador"]);
   const { participantId } = await params;
@@ -35,13 +53,14 @@ export default async function ParticipantDetailPage({ params }: ParticipantDetai
     { data: registrationsData },
     { data: checkinsData },
     { data: consentData },
+    { data: participantChangeHistory },
   ] = await Promise.all([
     admin
       .from("participants")
       .select("id, participant_number, full_name, document_type, document_number, email, phone, state, city, profession")
       .eq("id", participantId)
       .maybeSingle(),
-    admin.from("event_registrations").select("event_day_id").eq("participant_id", participantId),
+    admin.from("event_registrations").select("event_day_id").eq("participant_id", participantId).eq("status", "active"),
     admin
       .from("entry_checkins")
       .select("event_day_id, checked_in_at")
@@ -52,6 +71,12 @@ export default async function ParticipantDetailPage({ params }: ParticipantDetai
       .from("participant_event_consents")
       .select("event_id, exhibitor_data_sharing, recorded_at")
       .eq("participant_id", participantId),
+    admin
+      .from("participant_change_history")
+      .select("id, source, changes, created_at")
+      .eq("participant_id", participantId)
+      .order("created_at", { ascending: false })
+      .limit(100),
   ]);
 
   if (!participant) {
@@ -178,6 +203,47 @@ export default async function ParticipantDetailPage({ params }: ParticipantDetai
           profession: participant.profession,
         }}
       />
+
+      <div className="surface-card rounded-xl p-5">
+        <h2 className="font-headline text-xl font-bold text-[var(--foreground)]">Histórico de alterações</h2>
+        <p className="mt-1 text-sm text-muted">
+          Registro das alterações cadastrais. Os relatórios sempre usam os dados atuais do participante.
+        </p>
+        <div className="mt-4 space-y-3">
+          {(participantChangeHistory ?? []).map((entry) => {
+            const changes = Object.entries(entry.changes as Record<string, ParticipantChange>).filter(
+              ([field]) => field in PARTICIPANT_HISTORY_FIELD_LABELS
+            );
+            return (
+              <div key={entry.id} className="rounded-xl border border-[var(--outline-variant)]/40 bg-white p-4">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="font-semibold">
+                    {HISTORY_SOURCE_LABELS[entry.source as keyof typeof HISTORY_SOURCE_LABELS] ?? "Atualização"}
+                  </p>
+                  <p className="text-xs text-muted">{formatSaoPauloDateTime(entry.created_at)}</p>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {changes.map(([field, change]) => (
+                    <div key={field} className="grid gap-1 text-sm md:grid-cols-[180px_1fr]">
+                      <span className="font-semibold text-[var(--outline)]">
+                        {PARTICIPANT_HISTORY_FIELD_LABELS[field as ParticipantHistoryField]}
+                      </span>
+                      <span>
+                        <span className="text-muted line-through">{formatHistoryValue(change.before)}</span>
+                        <span aria-hidden="true"> → </span>
+                        <span className="font-medium">{formatHistoryValue(change.after)}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {!participantChangeHistory?.length ? (
+            <p className="text-sm text-muted">Nenhuma alteração cadastral registrada até o momento.</p>
+          ) : null}
+        </div>
+      </div>
 
       <div className="surface-card rounded-xl p-5">
         <h2 className="font-headline text-xl font-bold text-[var(--foreground)]">Histórico por Evento</h2>

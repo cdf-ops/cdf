@@ -706,6 +706,33 @@ export type Database = {
           },
         ];
       };
+      participant_change_history: {
+        Row: {
+          id: string;
+          participant_id: string;
+          actor_user_id: string | null;
+          source: "public_registration" | "reception" | "admin" | "participant_admin" | "import" | "system";
+          changes: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          participant_id: string;
+          actor_user_id?: string | null;
+          source: "public_registration" | "reception" | "admin" | "participant_admin" | "import" | "system";
+          changes: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          participant_id?: string;
+          actor_user_id?: string | null;
+          source?: "public_registration" | "reception" | "admin" | "participant_admin" | "import" | "system";
+          changes?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       participants: {
         Row: {
           id: string;
@@ -764,6 +791,9 @@ export type Database = {
           registration_source: "legacy" | "public_registration" | "reception" | "admin" | "import";
           data_sharing_notice_version: string | null;
           data_sharing_notice_acknowledged_at: string | null;
+          status: "active" | "cancelled";
+          cancelled_at: string | null;
+          cancelled_by: string | null;
           created_at: string;
         };
         Insert: {
@@ -773,6 +803,9 @@ export type Database = {
           registration_source?: "legacy" | "public_registration" | "reception" | "admin" | "import";
           data_sharing_notice_version?: string | null;
           data_sharing_notice_acknowledged_at?: string | null;
+          status?: "active" | "cancelled";
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           created_at?: string;
         };
         Update: {
@@ -782,6 +815,9 @@ export type Database = {
           registration_source?: "legacy" | "public_registration" | "reception" | "admin" | "import";
           data_sharing_notice_version?: string | null;
           data_sharing_notice_acknowledged_at?: string | null;
+          status?: "active" | "cancelled";
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           created_at?: string;
         };
         Relationships: [];

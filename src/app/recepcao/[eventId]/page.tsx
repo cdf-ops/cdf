@@ -80,7 +80,7 @@ export default async function ReceptionTerminalPage({ params, searchParams }: Re
     const [registrationsResult, checkinsResult] =
       participantIds.length > 0
         ? await Promise.all([
-            admin.from("event_registrations").select("participant_id").eq("event_day_id", selectedDayId).in("participant_id", participantIds),
+            admin.from("event_registrations").select("participant_id").eq("event_day_id", selectedDayId).eq("status", "active").in("participant_id", participantIds),
             admin.from("entry_checkins").select("participant_id").eq("event_day_id", selectedDayId).is("deleted_at", null).in("participant_id", participantIds),
           ])
         : [{ data: [] }, { data: [] }];

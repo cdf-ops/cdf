@@ -104,6 +104,7 @@ export default async function ReceptionCheckinPage({ params, searchParams }: Rec
               .from("event_registrations")
               .select("participant_id")
               .eq("event_day_id", selectedDayId)
+              .eq("status", "active")
               .in("participant_id", participantIds)
           ).data ?? []
         : [];

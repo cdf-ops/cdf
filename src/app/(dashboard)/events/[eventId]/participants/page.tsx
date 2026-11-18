@@ -174,6 +174,7 @@ export default async function ParticipantsPage({ params, searchParams }: Partici
                 "event_day_id",
                 eventDays.map((day) => day.id)
               )
+              .eq("status", "active")
           ).data ?? []
         : [];
     relationCount = registrations.length;

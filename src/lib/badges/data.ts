@@ -26,7 +26,8 @@ export async function loadEventBadgePdfData(
   const { data: registrationsData } = await admin
     .from("event_registrations")
     .select("participant_id")
-    .in("event_day_id", days.map((day) => day.id));
+    .in("event_day_id", days.map((day) => day.id))
+    .eq("status", "active");
   const registeredIds = [...new Set((registrationsData ?? []).map((registration) => registration.participant_id))];
   const requested = requestedParticipantIds?.length ? [...new Set(requestedParticipantIds)] : registeredIds;
   const participantIds = requested.filter((id) => registeredIds.includes(id));

@@ -57,6 +57,10 @@ export function getSaoPauloDateKey(value: DateValue = new Date()) {
   return `${values.get("year")}-${values.get("month")}-${values.get("day")}`;
 }
 
+export function getSaoPauloDayStartIso(date: string) {
+  return `${date.slice(0, 10)}T00:00:00-03:00`;
+}
+
 export function getClosestEventDayId(
   eventDays: { id: string; date: string }[],
   referenceDate = getSaoPauloDateKey()

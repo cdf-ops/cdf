@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireSession } from "@/lib/auth/session";
 import { validateDocumentNumber } from "@/lib/domain/documents";
 import { normalizeDocumentNumber } from "@/lib/domain/registrations";
+import { buildParticipantChanges, recordParticipantChanges, type ParticipantSnapshot } from "@/lib/participants/history";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ParticipantDetailState = {
@@ -78,6 +79,44 @@ export async function updateParticipantDetailsAction(
       return withError("Já existe outro participante com este documento.");
     }
 
+    const { data: currentParticipant, error: currentParticipantError } = await admin
+      .from("participants")
+      .select("id, full_name, document_type, document_number, email, phone, company, job_title, state, city, profession")
+      .eq("id", parsed.data.participantId)
+      .maybeSingle();
+
+    if (currentParticipantError) {
+      console.error("updateParticipantDetailsAction.currentParticipantError", currentParticipantError);
+      return withError("Não foi possível consultar os dados atuais do participante.");
+    }
+    if (!currentParticipant) {
+      return withError("Participante não encontrado.");
+    }
+
+    const before: ParticipantSnapshot = {
+      full_name: currentParticipant.full_name,
+      document_type: currentParticipant.document_type,
+      document_number: currentParticipant.document_number,
+      email: currentParticipant.email,
+      phone: currentParticipant.phone,
+      company: currentParticipant.company,
+      job_title: currentParticipant.job_title,
+      state: currentParticipant.state,
+      city: currentParticipant.city,
+      profession: currentParticipant.profession,
+    };
+    const after: ParticipantSnapshot = {
+      ...before,
+      full_name: parsed.data.fullName,
+      document_type: documentType,
+      document_number: documentNumber,
+      email: parsed.data.email.toLowerCase(),
+      phone: parsed.data.phone,
+      state: parsed.data.state.toUpperCase(),
+      city: parsed.data.city,
+      profession: parsed.data.profession,
+    };
+
     const { data: participant, error } = await admin
       .from("participants")
       .update({
@@ -86,7 +125,7 @@ export async function updateParticipantDetailsAction(
         document_number: documentNumber,
         email: parsed.data.email.toLowerCase(),
         phone: parsed.data.phone,
-        state: parsed.data.state,
+        state: parsed.data.state.toUpperCase(),
         city: parsed.data.city,
         profession: parsed.data.profession,
       })
@@ -101,6 +140,13 @@ export async function updateParticipantDetailsAction(
     if (!participant) {
       return withError("Participante não encontrado.");
     }
+
+    await recordParticipantChanges({
+      participantId: participant.id,
+      actorUserId: session.userId,
+      source: "participant_admin",
+      changes: buildParticipantChanges(before, after),
+    });
 
     await admin.from("audit_logs").insert({
       actor_user_id: session.userId,

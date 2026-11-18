@@ -35,6 +35,7 @@ export default async function InscriptionsPage({ params }: InscriptionsPageProps
               "event_day_id",
               eventDays.map((day) => day.id)
             )
+            .eq("status", "active")
         ).data ?? []
       : [];
 

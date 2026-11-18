@@ -83,6 +83,7 @@ export default async function DayListPage({ params, searchParams }: DayListPageP
         .from("event_registrations")
         .select("participant_id")
         .eq("event_day_id", selectedDayId)
+        .eq("status", "active")
     ).data ?? [];
 
   const participantIds = [
