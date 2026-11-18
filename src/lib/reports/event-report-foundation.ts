@@ -22,6 +22,8 @@ export type ReportRegistration = {
   eventDayId: string;
   source: "legacy" | "public_registration" | "reception" | "admin" | "import";
   createdAt: string;
+  status: "active" | "cancelled";
+  cancelledAt: string | null;
 };
 
 export type ReportCheckin = {
@@ -51,6 +53,7 @@ export type EventReportFoundation = {
   event: { id: string; name: string; status: string };
   participantsById: Map<string, ReportParticipant>;
   registrations: ReportRegistration[];
+  cancelledRegistrations: ReportRegistration[];
   officialCheckins: ReportCheckin[];
   days: EventDayReportFoundation[];
   totals: {
@@ -85,6 +88,7 @@ export async function getEventReportFoundation(eventId: string): Promise<EventRe
       event,
       participantsById: new Map(),
       registrations: [],
+      cancelledRegistrations: [],
       officialCheckins: [],
       days: [],
       totals: {
@@ -102,9 +106,8 @@ export async function getEventReportFoundation(eventId: string): Promise<EventRe
     await Promise.all([
       admin
         .from("event_registrations")
-        .select("id, participant_id, event_day_id, registration_source, created_at")
-        .in("event_day_id", dayIds)
-        .eq("status", "active"),
+        .select("id, participant_id, event_day_id, registration_source, created_at, status, cancelled_at")
+        .in("event_day_id", dayIds),
       admin
         .from("entry_checkins")
         .select("id, participant_id, event_day_id, checked_in_at, origin")
@@ -116,13 +119,17 @@ export async function getEventReportFoundation(eventId: string): Promise<EventRe
     throw new Error("Não foi possível carregar inscrições e presenças do relatório.");
   }
 
-  const registrations: ReportRegistration[] = (registrationData ?? []).map((registration) => ({
+  const allRegistrations: ReportRegistration[] = (registrationData ?? []).map((registration) => ({
     id: registration.id,
     participantId: registration.participant_id,
     eventDayId: registration.event_day_id,
     source: registration.registration_source,
     createdAt: registration.created_at,
+    status: registration.status,
+    cancelledAt: registration.cancelled_at,
   }));
+  const registrations = allRegistrations.filter((registration) => registration.status === "active");
+  const cancelledRegistrations = allRegistrations.filter((registration) => registration.status === "cancelled");
   const officialCheckins: ReportCheckin[] = (checkinData ?? []).map((checkin) => ({
     id: checkin.id,
     participantId: checkin.participant_id,
@@ -132,6 +139,7 @@ export async function getEventReportFoundation(eventId: string): Promise<EventRe
   }));
   const participantIds = unique([
     ...registrations.map((registration) => registration.participantId),
+    ...cancelledRegistrations.map((registration) => registration.participantId),
     ...officialCheckins.map((checkin) => checkin.participantId),
   ]);
   const { data: participantData, error: participantError } = participantIds.length
@@ -200,6 +208,7 @@ export async function getEventReportFoundation(eventId: string): Promise<EventRe
     event,
     participantsById,
     registrations,
+    cancelledRegistrations,
     officialCheckins,
     days,
     totals: {
