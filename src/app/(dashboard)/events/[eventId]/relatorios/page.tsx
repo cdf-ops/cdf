@@ -131,6 +131,20 @@ function registrationMatchesKind(
   return kind === "onsite" ? registration.createdAt >= cutoff : registration.createdAt < cutoff;
 }
 
+function buildExportHref(
+  eventId: string,
+  activeTab: EventReportTab,
+  query: ReportSearchParams,
+  format: "csv" | "xlsx"
+) {
+  const params = new URLSearchParams({ report: activeTab, format });
+  (["day", "q", "status", "kind", "attendance"] as const).forEach((key) => {
+    const value = query[key];
+    if (value) params.set(key, value);
+  });
+  return `/api/reports/events/${eventId}/export?${params.toString()}`;
+}
+
 export default async function ReportsPage({ params, searchParams }: ReportsPageProps) {
   const session = await requireSession(["super_adm", "organizador"]);
   const { eventId } = await params;
@@ -300,6 +314,22 @@ export async function EventReportsView({
                 Atualizar agora
               </SubmitButton>
             </Form>
+            {role === "super_adm" ? (
+              <div className="flex flex-wrap justify-end gap-2">
+                <a
+                  href={buildExportHref(eventId, activeTab, query, "xlsx")}
+                  className="inline-flex min-h-10 items-center rounded-xl border border-[var(--outline-variant)]/55 bg-white px-3 text-xs font-bold text-[var(--primary)]"
+                >
+                  Exportar Excel
+                </a>
+                <a
+                  href={buildExportHref(eventId, activeTab, query, "csv")}
+                  className="inline-flex min-h-10 items-center rounded-xl border border-[var(--outline-variant)]/55 bg-white px-3 text-xs font-bold text-[var(--primary)]"
+                >
+                  Exportar CSV
+                </a>
+              </div>
+            ) : null}
             <p className="text-xs text-muted">Última atualização: {formatSaoPauloDateTime(updatedAt)}</p>
           </div>
         </div>
