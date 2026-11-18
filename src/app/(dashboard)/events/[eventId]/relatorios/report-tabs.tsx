@@ -1,18 +1,24 @@
 import Link from "next/link";
 
-export type EventReportTab = "resumo-inscricoes" | "lista-inscritos";
+export type EventReportTab =
+  | "resumo-inscricoes"
+  | "lista-inscritos"
+  | "presenca-dia"
+  | "presenca-total"
+  | "presentes";
 
 type ReportTabsProps = {
   eventId: string;
   activeTab: EventReportTab;
 };
 
-const FUTURE_TABS = ["Presença por dia", "Presença total", "Presentes", "Sorteados"];
-
 export function ReportTabs({ eventId, activeTab }: ReportTabsProps) {
   const tabs: { id: EventReportTab; label: string }[] = [
     { id: "resumo-inscricoes", label: "Resumo de inscrições" },
     { id: "lista-inscritos", label: "Lista de inscritos" },
+    { id: "presenca-dia", label: "Presença por dia" },
+    { id: "presenca-total", label: "Presença total" },
+    { id: "presentes", label: "Presentes" },
   ];
 
   return (
@@ -38,16 +44,13 @@ export function ReportTabs({ eventId, activeTab }: ReportTabsProps) {
             {tab.label}
           </Link>
         ))}
-        {FUTURE_TABS.map((label) => (
-          <span
-            key={label}
-            aria-disabled="true"
-            title="Será liberado nos próximos blocos"
-            className="cursor-not-allowed border-b-2 border-transparent px-3 py-3 text-sm font-semibold text-[var(--outline)]/55"
-          >
-            {label}
-          </span>
-        ))}
+        <span
+          aria-disabled="true"
+          title="Será liberado no próximo bloco"
+          className="cursor-not-allowed border-b-2 border-transparent px-3 py-3 text-sm font-semibold text-[var(--outline)]/55"
+        >
+          Sorteados
+        </span>
       </div>
     </nav>
   );

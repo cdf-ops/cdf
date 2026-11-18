@@ -1,6 +1,10 @@
 import Form from "next/form";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import {
+  PresenceReports,
+  type AttendanceFilter,
+} from "@/app/(dashboard)/events/[eventId]/relatorios/presence-reports";
 import { ReportTabs, type EventReportTab } from "@/app/(dashboard)/events/[eventId]/relatorios/report-tabs";
 import { SubmitButton } from "@/components/submit-button";
 import { requireSession } from "@/lib/auth/session";
@@ -21,6 +25,9 @@ type ReportsPageProps = {
     kind?: string;
     page?: string;
     pageSize?: string;
+    attendance?: string;
+    notice?: string;
+    notice_type?: "success" | "error";
   }>;
 };
 
@@ -49,7 +56,20 @@ function unique(values: string[]) {
 }
 
 function parseTab(value?: string): EventReportTab {
-  return value === "lista-inscritos" ? "lista-inscritos" : "resumo-inscricoes";
+  if (
+    value === "lista-inscritos" ||
+    value === "presenca-dia" ||
+    value === "presenca-total" ||
+    value === "presentes"
+  ) {
+    return value;
+  }
+  return "resumo-inscricoes";
+}
+
+function parseAttendance(value?: string): AttendanceFilter {
+  if (value === "absent" || value === "all") return value;
+  return "present";
 }
 
 function parseStatus(value?: string): RegistrationStatusFilter {
@@ -114,6 +134,7 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
   const kindFilter = parseKind(query.kind);
   const requestedPage = parsePage(query.page);
   const pageSize = parsePageSize(query.pageSize);
+  const attendanceFilter = parseAttendance(query.attendance);
   const searchText = (query.q ?? "").trim();
   const foundation = await getEventReportFoundation(eventId);
   if (!foundation) notFound();
@@ -231,6 +252,12 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
                   <input type="hidden" name="kind" value={kindFilter} />
                   <input type="hidden" name="pageSize" value={pageSize} />
                 </>
+              ) : activeTab === "presenca-dia" || activeTab === "presenca-total" || activeTab === "presentes" ? (
+                <>
+                  <input type="hidden" name="q" value={searchText} />
+                  <input type="hidden" name="attendance" value={attendanceFilter} />
+                  <input type="hidden" name="pageSize" value={pageSize} />
+                </>
               ) : null}
               <SubmitButton
                 pendingLabel="Atualizando..."
@@ -342,7 +369,7 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
             </div>
           </div>
         </>
-      ) : (
+      ) : activeTab === "lista-inscritos" ? (
         <>
           <div className="surface-card rounded-2xl p-5 sm:p-6">
             <Form action={`/events/${eventId}/relatorios`} scroll={false} className="grid gap-3 md:grid-cols-2 xl:grid-cols-[2fr_repeat(4,1fr)_auto] xl:items-end">
@@ -441,6 +468,19 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
             </div>
           </div>
         </>
+      ) : (
+        <PresenceReports
+          eventId={eventId}
+          activeTab={activeTab}
+          foundation={foundation}
+          selectedDayId={selectedDayId}
+          searchText={searchText}
+          attendanceFilter={attendanceFilter}
+          requestedPage={requestedPage}
+          pageSize={pageSize}
+          notice={query.notice}
+          noticeType={query.notice_type}
+        />
       )}
     </section>
   );
